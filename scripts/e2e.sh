@@ -7,17 +7,18 @@ E2E_CROWDSEC_IMAGE=${E2E_CROWDSEC_IMAGE:-crowdsec:test}
 dir=$(mktemp -d)
 cp -r examples/. "$dir"
 cd "$dir"
-rm sites/*.caddy
+rm config/sites/*.caddy
 # Local CA instead of ACME; non-root cannot install it into a trust store anyway.
 # shellcheck disable=SC2016 # literal Caddyfile placeholder
-sed -i 's/^\temail {\$ACME_EMAIL}$/&\n\tskip_install_trust/' Caddyfile
-grep -q skip_install_trust Caddyfile
+sed -i 's/^\temail {\$ACME_EMAIL}$/&\n\tskip_install_trust/' config/Caddyfile
+grep -q skip_install_trust config/Caddyfile
 for app in app1 app2; do
-  printf '%s.example.test {\n\ttls internal\n\timport common\n\treverse_proxy %s:80\n}\n' "$app" "$app" > "sites/$app.caddy"
+  printf '%s.example.test {\n\ttls internal\n\timport common\n\treverse_proxy %s:80\n}\n' "$app" "$app" > "config/sites/$app.caddy"
 done
 printf 'ACME_EMAIL=ci@example.com\nCROWDSEC_API_KEY=%s\n' "$(openssl rand -hex 32)" > .env
 # pull_policy never: fail instead of silently testing a published image.
-printf 'services:\n  caddy:\n    image: %s\n    pull_policy: never\n  crowdsec:\n    image: %s\n    pull_policy: never\n' \
+# DISABLE_ONLINE_API: no Central API registration for every CI run.
+printf 'services:\n  caddy:\n    image: %s\n    pull_policy: never\n  crowdsec:\n    image: %s\n    pull_policy: never\n    environment:\n      DISABLE_ONLINE_API: "true"\n' \
   "$E2E_IMAGE" "$E2E_CROWDSEC_IMAGE" > compose.ci.yaml
 chmod -R a+rX .
 dc() { docker compose -f compose.yaml -f compose.ci.yaml "$@"; }
@@ -54,6 +55,12 @@ wait_for() { # wait_for <seconds> <description> <command...>
 echo "== routing"
 wait_for 60 "app1 via Caddy" status_is app1 200
 test "$(get app2)" = 200
+
+echo "== health checks and IPv6"
+healthy() { [ "$(docker inspect -f '{{.State.Health.Status}}' "$(dc ps -q "$1")")" = healthy ]; }
+wait_for 120 "caddy healthy" healthy caddy
+wait_for 120 "crowdsec healthy" healthy crowdsec
+[ "$(docker network inspect caddy_egress -f '{{.EnableIPv6}}')" = true ] || { echo "::error::caddy_egress without IPv6"; exit 1; }
 
 echo "== isolation"
 if docker run --rm --network caddy_app1 busybox wget -qT 3 -O /dev/null http://app2 2>/dev/null; then

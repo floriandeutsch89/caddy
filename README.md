@@ -24,7 +24,7 @@ You need Docker ≥ 28 with Compose ≥ 2.33, DNS records for each hostname poin
 git clone --depth 1 https://github.com/floriandeutsch89/caddy.git caddy-src
 cp -r caddy-src/examples caddy && cd caddy && cp .env.example .env
 sed -i "s/^CROWDSEC_API_KEY=.*/CROWDSEC_API_KEY=$(openssl rand -hex 32)/" .env
-# set ACME_EMAIL in .env, edit sites/*.caddy and the apps in compose.yaml
+# set ACME_EMAIL in .env, edit config/sites/*.caddy and the apps in compose.yaml
 docker network create --internal caddy_app1   # once per app, see below
 docker network create --internal caddy_app2
 docker compose up -d
@@ -33,16 +33,17 @@ docker compose logs -f caddy   # wait for "certificate obtained successfully"
 
 | File | Purpose |
 |---|---|
-| `Caddyfile` | Global options, shared `(common)` snippet, `import sites/*.caddy` |
-| `sites/*.caddy` | One file per site |
+| `config/Caddyfile` | Global options, shared `(common)` snippet, `import sites/*.caddy` |
+| `config/sites/*.caddy` | One file per site |
 | `compose.yaml` | Caddy, CrowdSec, demo apps, one network per app, resource limits |
 
 ## Sites
 
-Caddy reads `/etc/caddy/Caddyfile`, which loads every `sites/*.caddy`. A new site is a new file:
+`config/` is mounted as `/etc/caddy`. Caddy reads `Caddyfile`, which loads every `sites/*.caddy`.
+A new site is a new file:
 
 ```caddyfile
-# sites/shop.caddy
+# config/sites/shop.caddy
 shop.example.com {
 	import common
 	reverse_proxy shop:8080
@@ -56,8 +57,12 @@ docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter c
 ```
 
 `import common` adds compression, security headers, CrowdSec, the access log and the rate
-limit. Files not ending in
-`.caddy` are ignored.
+limit. Files not ending in `.caddy` are ignored. Files must be readable for UID 10001 (`0644`,
+directories `0755`; the default with `git clone`).
+
+HSTS is set without `includeSubDomains`, which would force HTTPS for a year on subdomains hosted
+elsewhere. Where every subdomain is HTTPS, add it per site:
+`header Strict-Transport-Security "max-age=31536000; includeSubDomains"`.
 
 ## Apps and networks
 
@@ -89,7 +94,7 @@ networks:
     external: true
 ```
 
-4. Add `sites/app3.caddy` and reload Caddy.
+4. Add `config/sites/app3.caddy` and reload Caddy.
 
 An app that needs outbound internet gets an extra network of its own.
 
@@ -102,7 +107,7 @@ Every hostname gets its own Let's Encrypt certificate, renewed automatically.
 - **Option 2: DNS (acme-dns).** For wildcards (`*.example.net`) or hosts not reachable from the
   internet. Register once per domain (`curl -X POST https://auth.acme-dns.io/register`), CNAME
   `_acme-challenge.<domain>` to the returned `fulldomain`, put the credentials into `.env`,
-  rename `sites/wildcard.caddy.example` to `.caddy`.
+  rename `config/sites/wildcard.caddy.example` to `.caddy`.
 
 Use option 1 unless you need a wildcard. Both can be mixed.
 
@@ -122,6 +127,32 @@ Use option 1 unless you need a wildcard. Both can be mixed.
 `compose.yaml` caps Caddy at 1 CPU, 512 MB (`GOMEMLIMIT` 460MiB, change both together), 256
 processes, and rotates logs (3 × 10 MB). Plenty for small sites. Give your apps limits and log
 rotation too.
+
+Caddy and CrowdSec have health checks (`docker compose ps` shows `healthy`). Caddy waits for
+CrowdSec on start but does not depend on it: if CrowdSec stays unhealthy, Caddy starts anyway.
+
+`caddy_egress` has IPv6 enabled so Caddy sees real IPv6 client addresses. Without it, Docker
+relays IPv6 visitors through a proxy and they all share one address: one rate limit, one
+CrowdSec ban for everybody. Check with
+`docker compose exec caddy tail -n 50 /var/log/caddy/access.log | jq -r .request.remote_ip | sort | uniq -c`;
+a `172.x.0.1`-style gateway address there means it does not work on your host.
+
+## Backups
+
+Two volumes hold state you do not want to lose: `caddy-data` (certificates, ACME account;
+re-issuing everything can hit Let's Encrypt limits) and `crowdsec-config` (Central API
+registration). Everything else is rebuilt on start. Back up both, e.g. nightly via cron:
+
+```sh
+for v in caddy-data crowdsec-config; do
+  docker run --rm -v "caddy_$v:/v:ro" -v "$PWD/backup:/b" alpine \
+    tar -czf "/b/$v-$(date +%F).tar.gz" -C /v .
+done
+```
+
+The volume prefix is the compose project name (the directory, here `caddy`; see
+`docker volume ls`). Restore into a stopped stack with `tar -xzf … -C /v` the same way. Never use
+`docker compose down -v` unless you mean to delete them.
 
 ## Non-root
 

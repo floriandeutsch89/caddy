@@ -9,8 +9,9 @@ services:
       - "443:443/udp" # HTTP/3
     env_file: .env
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./sites:/etc/caddy/sites:ro
+      # Directory, not single files: editors and sed -i replace files, and a
+      # single-file bind mount would keep showing the old one to `caddy reload`.
+      - ./config:/etc/caddy:ro
       - caddy-data:/data # certificates and ACME account: must persist
       - caddy-config:/config
       - caddy-logs:/var/log/caddy # access log for CrowdSec
@@ -40,7 +41,17 @@ services:
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" } # otherwise logs grow until the disk is full
-    depends_on: [crowdsec]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+    depends_on:
+      crowdsec:
+        # Wait for CrowdSec, but start anyway if it never gets healthy: sites must not
+        # go down because of CrowdSec (the bouncer fails open and reconnects).
+        condition: service_healthy
+        required: false
     labels: [com.centurylinklabs.watchtower.enable=true] # follows :latest, i.e. promoted builds
 
   # Detects attacks in Caddy's access log and shares bans with the bouncer in Caddy.
@@ -57,6 +68,11 @@ services:
       - crowdsec-data:/var/lib/crowdsec/data
       - caddy-logs:/var/log/caddy:ro
     networks: [caddy_egress] # hub updates + community blocklist; Caddy reaches the LAPI here
+    healthcheck:
+      test: ["CMD", "cscli", "lapi", "status"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s # first start installs the hub collections
     security_opt: ["no-new-privileges:true"]
     deploy:
       resources:
@@ -127,6 +143,9 @@ services:
 networks:
   caddy_egress:
     name: caddy_egress
+    # Without IPv6 here, Docker relays IPv6 clients through a proxy and Caddy sees the
+    # gateway address for all of them: one shared rate limit, one CrowdSec ban for all.
+    enable_ipv6: true
   socket_proxy:
     internal: true # Watchtower <-> proxy only
   watchtower_egress: {}
