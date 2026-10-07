@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: read # checkout only; publish widens its own job
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -39,6 +39,11 @@ jobs:
           go mod tidy -diff
           test -z "$(gofmt -l .)" || { gofmt -d .; exit 1; }
           go vet ./...
+      # Reachability-aware: only fails on vulns in code paths the binary uses.
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      - name: zizmor (workflow security)
+        run: pipx run zizmor==1.30.1 --offline --format=github .
 
   test:
     runs-on: ubuntu-latest
@@ -71,7 +76,7 @@ jobs:
           WANT: v${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          run() { docker run --rm -v "$PWD/test:/test:ro" caddy:test "$@"; }
+          run() { docker run --rm -v "$PWD:/repo:ro" -e DOMAIN=example.com -e ACME_EMAIL=a@example.com caddy:test "$@"; }
           got=$(run caddy version | cut -d' ' -f1)
           [ "$got" = "$WANT" ] || { echo "::error::caddy version $got, go.mod says $WANT"; exit 1; }
           mods=$(run caddy list-modules)
@@ -79,9 +84,14 @@ jobs:
             grep -qx "$m" <<<"$mods" || { echo "::error::module $m missing"; exit 1; }
           done
           [ "$(run id -u)" = 10001 ] || { echo "::error::image does not run as UID 10001"; exit 1; }
-          run caddy validate --config /test/Caddyfile --adapter caddyfile
-          # Non-root must still bind :80 (relies on Docker's unprivileged port range).
-          docker run -d --name smoke -p 8080:80 caddy:test caddy respond --listen :80 ok
+          run caddy validate --config /repo/test/Caddyfile --adapter caddyfile
+          run caddy validate --config /repo/examples/Caddyfile --adapter caddyfile
+          # Hardened like the README example; non-root must still bind :80
+          # (relies on Docker's unprivileged port range, not on capabilities).
+          docker run -d --name smoke -p 8080:80 \
+            --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+            --tmpfs /data:uid=10001,gid=10001 --tmpfs /config:uid=10001,gid=10001 \
+            caddy:test caddy respond --listen :80 ok
           for _ in $(seq 20); do curl -fsS http://127.0.0.1:8080 && break; sleep 0.5; done | grep -qx ok \
             || { docker logs smoke; echo "::error::container did not serve on :80"; exit 1; }
           docker rm -f smoke
@@ -92,6 +102,7 @@ jobs:
           image-ref: caddy:test
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
           exit-code: '1'
 
   publish:
@@ -100,9 +111,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
-      id-token: write
-      attestations: write
+      packages: write # push to GHCR
+      id-token: write # OIDC for the Sigstore-signed attestation
+      attestations: write # store the attestation
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -1,0 +1,12 @@
+# Each entry needs a reason and an expiry; an expired entry fails CI again.
+vulnerabilities:
+  - id: CVE-2026-44982
+    paths:
+      - usr/bin/caddy
+    statement: >-
+      Bug in the CrowdSec AppSec engine (crowdsec module v1.6.3, pulled in by
+      caddy-crowdsec-bouncer v0.14.1). The binary links only pkg/apiclient,
+      pkg/models, pkg/types and pkg/fflag; no AppSec code (`go list -deps .`).
+      Fixed versions need an unreleased bouncer commit. Drop once a bouncer
+      release depends on crowdsec >= 1.7.8.
+    expired_at: 2027-01-07

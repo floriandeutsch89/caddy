@@ -1,0 +1,32 @@
+# Minimal production config. Uncomment plugin blocks as needed; README explains each.
+{
+	email {$ACME_EMAIL}
+	order rate_limit before reverse_proxy
+
+	# CrowdSec bouncer: needs a CrowdSec LAPI and a bouncer key.
+	# order crowdsec first
+	# crowdsec {
+	# 	api_url http://crowdsec:8080
+	# 	api_key {$CROWDSEC_API_KEY}
+	# }
+
+	# DNS-01 via acme-dns (wildcards, hosts not reachable on :80/:443).
+	# acme_dns acmedns {
+	# 	username {$ACMEDNS_USERNAME}
+	# 	password {$ACMEDNS_PASSWORD}
+	# 	subdomain {$ACMEDNS_SUBDOMAIN}
+	# 	server_url {$ACMEDNS_SERVER_URL}
+	# }
+}
+
+{$DOMAIN} {
+	# crowdsec
+	rate_limit {
+		zone per_ip {
+			key {remote_host}
+			events 300
+			window 1m
+		}
+	}
+	reverse_proxy app:80
+}

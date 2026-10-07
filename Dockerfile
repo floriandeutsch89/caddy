@@ -24,7 +24,7 @@ RUN addgroup -S -g 10001 caddy \
  && adduser -S -D -H -u 10001 -G caddy -h /data caddy \
  && chown -R caddy:caddy /data /config
 COPY --from=builder /out/caddy /usr/bin/caddy
-USER caddy:caddy
+USER 10001:10001
 LABEL org.opencontainers.image.title="caddy" \
       org.opencontainers.image.description="Caddy 2 with crowdsec-bouncer, acmedns and ratelimit plugins" \
       org.opencontainers.image.source="https://github.com/floriandeutsch89/caddy" \

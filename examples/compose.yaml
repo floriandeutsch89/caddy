@@ -1,0 +1,24 @@
+# Getting-started stack: Caddy in front of a demo app. Replace `app` with yours.
+services:
+  caddy:
+    image: ghcr.io/floriandeutsch89/caddy:2 # pin a digest in production
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    env_file: .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data # certificates and ACME account: must persist
+      - caddy-config:/config
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  app:
+    image: traefik/whoami:latest
+
+volumes:
+  caddy-data:
+  caddy-config:
