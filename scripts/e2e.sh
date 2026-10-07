@@ -27,6 +27,8 @@ cleanup() {
     echo "== diagnostics"
     curl -skv --max-time 5 --resolve app1.example.test:443:127.0.0.1 https://app1.example.test/ -o /dev/null 2>&1 | tail -15 || true
     docker inspect "$(dc ps -q caddy)" --format '{{json .NetworkSettings.Ports}} {{range $n, $e := .NetworkSettings.Networks}}{{$n}} gw={{$e.Gateway}} prio={{$e.GwPriority}}; {{end}}' || true
+    echo "== crowdsec metrics"; dc exec -T crowdsec cscli metrics show acquisition parsers 2>&1 | tail -30 || true
+    echo "== access.log (last 3)"; dc exec -T caddy tail -n 3 /var/log/caddy/access.log 2>&1 || true
     for svc in caddy crowdsec app1; do echo "== logs: $svc"; dc logs --no-color "$svc" | tail -60; done
   fi
   dc down -v >/dev/null 2>&1 || true
@@ -60,7 +62,13 @@ if docker run --rm --network caddy_app1 busybox wget -qT 3 -O /dev/null http://1
   echo "::error::app network caddy_app1 reaches the internet"; exit 1; fi
 
 echo "== crowdsec reads the access log and the bouncer is registered"
-wait_for 120 "acquisition of access.log" sh -c "docker compose -f compose.yaml -f compose.ci.yaml exec -T crowdsec cscli metrics 2>/dev/null | grep -q 'access.log'"
+# CrowdSec tails from the end of the file once its hub setup is done, so lines
+# written earlier (the routing checks) are never read: keep sending requests.
+crowdsec_reads_log() {
+  get app1 >/dev/null
+  dc exec -T crowdsec cscli metrics show acquisition -o json 2>/dev/null | grep -q 'access.log'
+}
+wait_for 120 "acquisition of access.log" crowdsec_reads_log
 wait_for 90 "bouncer pull" sh -c "docker compose -f compose.yaml -f compose.ci.yaml exec -T crowdsec cscli bouncers list -o json | jq -e '.[] | select(.name == \"caddy\") | (.last_pull // \"\") | tostring | test(\"^20\")' >/dev/null"
 
 echo "== a ban blocks the client"
