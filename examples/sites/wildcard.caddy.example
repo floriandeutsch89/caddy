@@ -12,9 +12,9 @@
 		}
 	}
 
-	@app host app.example.net
-	handle @app {
-		reverse_proxy app:80
+	@app1 host app1.example.net
+	handle @app1 {
+		reverse_proxy app1:80
 	}
 	handle {
 		abort

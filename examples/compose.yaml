@@ -1,4 +1,4 @@
-# Getting-started stack: Caddy in front of a demo app. Add your upstreams as services.
+# One Caddy for all sites; one internal network per app, so apps cannot reach each other.
 services:
   caddy:
     image: ghcr.io/floriandeutsch89/caddy:2 # pin a digest in production
@@ -13,12 +13,35 @@ services:
       - ./sites:/etc/caddy/sites:ro
       - caddy-data:/data # certificates and ACME account: must persist
       - caddy-config:/config
+    networks:
+      - caddy_egress # ACME, OCSP, CrowdSec LAPI
+      - caddy_app1
+      - caddy_app2
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
 
-  app:
+  # Demo upstreams. Real apps usually live in their own compose project and join
+  # their network as `external: true` (README).
+  app1:
     image: traefik/whoami:latest
+    networks: [caddy_app1]
+
+  app2:
+    image: traefik/whoami:latest
+    networks: [caddy_app2]
+
+networks:
+  caddy_egress:
+    name: caddy_egress
+  # Fixed names so other compose projects can join. internal = no internet access;
+  # give an app that needs outbound traffic an extra network of its own.
+  caddy_app1:
+    name: caddy_app1
+    internal: true
+  caddy_app2:
+    name: caddy_app2
+    internal: true
 
 volumes:
   caddy-data:

@@ -1,0 +1,5 @@
+# One file per site. Upstream is reachable only via its own network (compose.yaml).
+app1.example.com {
+	import common
+	reverse_proxy app1:80
+}

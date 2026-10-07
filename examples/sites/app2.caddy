@@ -1,0 +1,9 @@
+# Several hostnames: one certificate each; www redirects to the apex.
+example.org {
+	import common
+	reverse_proxy app2:80
+}
+
+www.example.org {
+	redir https://example.org{uri} permanent
+}
