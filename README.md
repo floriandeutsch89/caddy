@@ -123,7 +123,7 @@ The image runs as UID `10001`. New named volumes work as is. Otherwise:
 
 ## Production
 
-Tags are rebuilt weekly. Pin the digest and verify it:
+Tags move with every dependency update. Pin the digest and verify it:
 
 ```sh
 docker buildx imagetools inspect ghcr.io/floriandeutsch89/caddy:2.11.7

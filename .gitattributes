@@ -1,0 +1,4 @@
+# LF everywhere: CRLF breaks shell scripts, Dockerfile RUN lines and go.sum checks on Windows checkouts.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
