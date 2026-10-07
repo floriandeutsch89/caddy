@@ -28,7 +28,7 @@ docker compose logs -f caddy   # wait for "certificate obtained successfully"
 
 | File | Purpose |
 |---|---|
-| `Caddyfile` | Global options, shared `(common)` snippet, `import sites/*.caddy` |
+| `caddyfile` | Global options, shared `(common)` snippet, `import sites/*.caddy` |
 | `sites/*.caddy` | One file per site |
 | `compose.yaml` | Caddy, CrowdSec, demo apps, one network per app, resource limits |
 | `crowdsec/acquis.yaml` | Tells CrowdSec to read Caddy's access log |
