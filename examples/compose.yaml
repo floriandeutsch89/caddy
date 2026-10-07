@@ -13,6 +13,7 @@ services:
       - ./sites:/etc/caddy/sites:ro
       - caddy-data:/data # certificates and ACME account: must persist
       - caddy-config:/config
+      - caddy-logs:/var/log/caddy # access log for CrowdSec
     networks:
       - caddy_egress # ACME, OCSP, CrowdSec LAPI
       - caddy_app1
@@ -37,6 +38,32 @@ services:
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" } # otherwise logs grow until the disk is full
+    depends_on: [crowdsec]
+
+  # Detects attacks in Caddy's access log and shares bans with the bouncer in Caddy.
+  # If it is down, Caddy keeps serving (fail-open), just without blocking.
+  crowdsec:
+    image: crowdsecurity/crowdsec:v1.8.1@sha256:0f2523fa61ef507f15d953045cface490cc880670c62f2755ced17524107f71a
+    restart: unless-stopped
+    environment:
+      # caddy: log parser + HTTP scenarios (probing, crawling, brute force, CVE probes).
+      # whitelist-good-actors: never ban well-known bots, CDNs and DNS resolvers.
+      COLLECTIONS: crowdsecurity/caddy crowdsecurity/whitelist-good-actors
+      # Registers Caddy's bouncer key on start; no cscli step needed.
+      BOUNCER_KEY_caddy: ${CROWDSEC_API_KEY:?set CROWDSEC_API_KEY in .env}
+    volumes:
+      - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+      - crowdsec-config:/etc/crowdsec
+      - crowdsec-data:/var/lib/crowdsec/data
+      - caddy-logs:/var/log/caddy:ro
+    networks: [caddy_egress] # hub updates + community blocklist; Caddy reaches the LAPI here
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256M, pids: 128 }
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
   # Demo upstreams. Real apps usually live in their own compose project and join
   # their network as `external: true` (README).
@@ -67,3 +94,6 @@ networks:
 volumes:
   caddy-data:
   caddy-config:
+  caddy-logs:
+  crowdsec-config:
+  crowdsec-data:

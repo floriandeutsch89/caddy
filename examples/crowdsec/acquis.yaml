@@ -1,0 +1,5 @@
+# Caddy's JSON access log from the shared volume, parsed by crowdsecurity/caddy.
+filenames:
+  - /var/log/caddy/access.log
+labels:
+  type: caddy

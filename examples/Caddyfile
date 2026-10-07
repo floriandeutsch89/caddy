@@ -4,12 +4,12 @@
 	email {$ACME_EMAIL}
 	order rate_limit before reverse_proxy
 
-	# CrowdSec bouncer: needs a CrowdSec LAPI and a bouncer key (README).
-	# order crowdsec first
-	# crowdsec {
-	# 	api_url http://crowdsec:8080
-	# 	api_key {$CROWDSEC_API_KEY}
-	# }
+	# Asks CrowdSec (compose.yaml) per request whether the client IP is banned.
+	order crowdsec first
+	crowdsec {
+		api_url http://crowdsec:8080
+		api_key {$CROWDSEC_API_KEY}
+	}
 }
 
 # Shared per-site defaults: `import common` in each site.
@@ -21,7 +21,17 @@
 		Referrer-Policy strict-origin-when-cross-origin
 		-Server
 	}
-	# crowdsec
+	crowdsec
+	# JSON access log on a shared volume; CrowdSec detects attacks from it.
+	# Short retention: CrowdSec reads it live, nothing else needs it.
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 10mb
+			roll_keep 2
+			roll_keep_for 48h
+		}
+		format json
+	}
 	# Static assets are not counted; pages and API calls are.
 	@limited not path *.css *.js *.mjs *.map *.png *.jpg *.jpeg *.gif *.svg *.webp *.avif *.ico *.woff *.woff2
 	rate_limit @limited {

@@ -20,6 +20,7 @@ You need Docker with Compose, DNS records for each hostname pointing to the serv
 ```sh
 git clone --depth 1 https://github.com/floriandeutsch89/caddy.git caddy-src
 cp -r caddy-src/examples caddy && cd caddy && cp .env.example .env
+sed -i "s/^CROWDSEC_API_KEY=.*/CROWDSEC_API_KEY=$(openssl rand -hex 32)/" .env
 # set ACME_EMAIL in .env, edit sites/*.caddy and the apps in compose.yaml
 docker compose up -d
 docker compose logs -f caddy   # wait for "certificate obtained successfully"
@@ -29,7 +30,8 @@ docker compose logs -f caddy   # wait for "certificate obtained successfully"
 |---|---|
 | `Caddyfile` | Global options, shared `(common)` snippet, `import sites/*.caddy` |
 | `sites/*.caddy` | One file per site |
-| `compose.yaml` | Caddy, demo apps, one network per app, resource limits |
+| `compose.yaml` | Caddy, CrowdSec, demo apps, one network per app, resource limits |
+| `crowdsec/acquis.yaml` | Tells CrowdSec to read Caddy's access log |
 
 ## Sites
 
@@ -49,7 +51,8 @@ Apply without downtime (a broken config is rejected, the old one keeps running):
 docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 ```
 
-`import common` adds compression, security headers and the rate limit. Files not ending in
+`import common` adds compression, security headers, CrowdSec, the access log and the rate
+limit. Files not ending in
 `.caddy` are ignored.
 
 ## Apps and networks
@@ -96,8 +99,11 @@ Use option 2 unless you need a wildcard. Both can be mixed.
 
 - **Rate limit:** 1000 requests/min per IP for pages and API calls; static assets (CSS, JS,
   images, fonts) are not counted. Behind a CDN, key on `{client_ip}` with `trusted_proxies`.
-- **CrowdSec:** needs a CrowdSec LAPI. Create a key with `cscli bouncers add caddy-bouncer`, set
-  `CROWDSEC_API_KEY`, uncomment the `crowdsec` lines in `Caddyfile`.
+- **CrowdSec:** runs next to Caddy, reads its access log and bans attacking IPs; Caddy blocks
+  them on every site. Collections: `crowdsecurity/caddy` (HTTP probing, crawling, brute force,
+  CVE probes) and `crowdsecurity/whitelist-good-actors`. Also pulls the community blocklist.
+  If CrowdSec is down, sites keep working without blocking. Check it:
+  `docker compose exec crowdsec cscli metrics` and `cscli decisions list`.
 
 ## Limits
 

@@ -18,11 +18,12 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # Runtime base only supplies the filesystem layout (Caddyfile, mime types, CA
 # certs, XDG env); the binary is ours, so its tag may lag go.mod briefly.
 FROM caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
-# Fixed non-root UID: volumes created by the root-running stock image need a
-# one-time `chown -R 10001:10001` (see README).
+# Fixed non-root UID; /var/log/caddy for the access log CrowdSec reads.
+# Volumes from the root-running stock image need a one-time chown (README).
 RUN addgroup -S -g 10001 caddy \
  && adduser -S -D -H -u 10001 -G caddy -h /data caddy \
- && chown -R caddy:caddy /data /config
+ && mkdir -p /var/log/caddy \
+ && chown -R caddy:caddy /data /config /var/log/caddy
 COPY --from=builder /out/caddy /usr/bin/caddy
 USER 10001:10001
 LABEL org.opencontainers.image.title="caddy" \
