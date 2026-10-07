@@ -20,16 +20,37 @@ services:
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
+    # Sized for a few dozen low-traffic sites; raise memory first if Caddy gets OOM-killed.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+          pids: 256
+        reservations:
+          memory: 128M
+    environment:
+      GOMEMLIMIT: 460MiB # ~90% of the memory limit: Go GCs harder instead of being OOM-killed
+    ulimits:
+      nofile: { soft: 65536, hard: 65536 } # one fd per open connection
+    stop_grace_period: 30s # let in-flight requests finish on restart
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" } # otherwise logs grow until the disk is full
 
   # Demo upstreams. Real apps usually live in their own compose project and join
   # their network as `external: true` (README).
   app1:
     image: traefik/whoami:latest
     networks: [caddy_app1]
+    deploy: &app-limits
+      resources:
+        limits: { cpus: "0.5", memory: 64M, pids: 64 }
 
   app2:
     image: traefik/whoami:latest
     networks: [caddy_app2]
+    deploy: *app-limits
 
 networks:
   caddy_egress:

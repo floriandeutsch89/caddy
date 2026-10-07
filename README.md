@@ -126,6 +126,24 @@ one. Networks have fixed names (`name:`), so stacks in other directories can joi
 Adding a network to Caddy recreates its container (a few seconds without TLS); adding a site
 file only needs a reload.
 
+### Resource limits
+
+The example caps every container, so one runaway app or a flood of requests cannot take the
+host down:
+
+| Setting | Caddy | Why |
+|---|---|---|
+| `cpus` / `memory` | 1.0 / 512M | Hard ceiling; size for your traffic. Watch `docker stats` and raise memory first on OOM kills |
+| `GOMEMLIMIT` | 460MiB | ~90 % of the memory limit; Go collects garbage harder before the kernel kills it. Change both together |
+| `pids` | 256 | Stops fork bombs; Caddy itself needs a few dozen threads |
+| `nofile` | 65536 | One file descriptor per open connection |
+| `logging` | 3 × 10 MB | Docker's default log driver never rotates |
+| `stop_grace_period` | 30s | In-flight requests finish on restart |
+
+CPU: Go ≥ 1.25 sizes `GOMAXPROCS` from the container's CPU limit on its own. Give every app
+in its own stack the same treatment (`deploy.resources.limits` with `cpus`, `memory`,
+`pids`, plus log rotation); the demo apps show the minimal form.
+
 ### Certificates
 
 Every hostname in `sites/` gets its own certificate from Let's Encrypt, renewed automatically.
