@@ -18,7 +18,8 @@ Only the latest image (`:latest`, `:2`, and the newest `:2.x.y`) gets rebuilds.
 
 - Go modules pinned and checksummed (`go.sum`), base images and actions pinned by digest/SHA,
   Dependabot with a 7-day cooldown.
-- Every build: govulncheck, Trivy (fails on fixable HIGH/CRITICAL), zizmor for workflows.
+- Every PR and push to main: govulncheck, zizmor, and a `docker-security` job (hadolint,
+  Trivy image scan failing on fixable HIGH/CRITICAL, Trivy Dockerfile misconfiguration scan).
   Accepted findings live in `.trivyignore.yaml` and `.govulncheck-ignore`, each with a reason
   and an expiry; an expired entry fails CI again.
 - Weekly re-scan with fresh vulnerability data; base image fixes arrive as Dependabot PRs.
