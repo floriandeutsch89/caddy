@@ -40,6 +40,9 @@ for net in caddy_app1 caddy_app2; do docker network create --internal "$net" >/d
 dc up -d --quiet-pull
 # .example.test, not .localhost: curl and Caddy both special-case localhost names.
 get() { curl -sk -o /dev/null -w '%{http_code}' --resolve "$1.example.test:443:127.0.0.1" "https://$1.example.test/"; }
+# Re-runs the request on every try; `test "$(get x)" = 200` as a wait_for argument
+# would expand once and compare a stale status forever.
+status_is() { [ "$(get "$1")" = "$2" ]; }
 wait_for() { # wait_for <seconds> <description> <command...>
   local t=$1 what=$2; shift 2
   for _ in $(seq "$t"); do "$@" && return 0; sleep 1; done
@@ -47,7 +50,7 @@ wait_for() { # wait_for <seconds> <description> <command...>
 }
 
 echo "== routing"
-wait_for 60 "app1 via Caddy" test "$(get app1)" = 200
+wait_for 60 "app1 via Caddy" status_is app1 200
 test "$(get app2)" = 200
 
 echo "== isolation"
@@ -64,7 +67,7 @@ echo "== a ban blocks the client"
 ip=$(dc exec -T caddy tail -n 1 /var/log/caddy/access.log | jq -r .request.remote_ip)
 echo "client ip as seen by Caddy: $ip"
 dc exec -T crowdsec cscli decisions add --ip "$ip" --duration 5m --reason e2e >/dev/null
-wait_for 90 "403 for banned ip" test "$(get app1)" = 403
+wait_for 90 "403 for banned ip" status_is app1 403
 dc exec -T crowdsec cscli decisions delete --ip "$ip" >/dev/null
-wait_for 90 "200 after unban" test "$(get app1)" = 200
+wait_for 90 "200 after unban" status_is app1 200
 echo "e2e ok"
