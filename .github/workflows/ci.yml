@@ -2,10 +2,17 @@
 # Weekly run re-scans with fresh vulnerability data; base image fixes arrive as Dependabot digest PRs.
 name: ci
 
+# Docs-only changes skip CI (they cannot change an image or the stack).
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - LICENSE
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - LICENSE
   schedule:
     - cron: '17 4 * * 1'
   workflow_dispatch:
