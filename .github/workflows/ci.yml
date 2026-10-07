@@ -16,6 +16,11 @@ on:
   schedule:
     - cron: '17 4 * * 1'
   workflow_dispatch:
+    inputs:
+      force:
+        description: Publish even if no image input changed
+        type: boolean
+        default: false
 
 permissions:
   contents: read # checkout only; publish widens its own job
@@ -190,12 +195,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # inputs: every file that ends up in (or shapes) the image; its hash decides
+          # whether there is anything new to publish.
           - image: caddy
             context: .
             licenses: Apache-2.0 AND MIT
+            inputs: Dockerfile .dockerignore go.mod go.sum main.go
           - image: crowdsec
             context: crowdsec
             licenses: MIT
+            inputs: crowdsec
     permissions:
       contents: read
       packages: write # push to GHCR
@@ -219,7 +228,6 @@ jobs:
           fi
           [[ "$v" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::unexpected $IMG version '$v'"; exit 1; }
           echo "version=${v#v}" >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
@@ -227,7 +235,33 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Same inputs as the published :edge -> nothing new, skip. Digests cannot tell
+      # (timestamps, SBOM), so the input hash is stored as a label and compared.
+      - name: Anything new to publish?
+        id: gate
+        env:
+          INPUTS: ${{ matrix.inputs }}
+          FORCE: ${{ inputs.force || false }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086 # INPUTS is a list of paths
+          recipe=$(git ls-files -s -- $INPUTS | sha256sum | cut -d' ' -f1)
+          published=$(docker buildx imagetools inspect "$IMAGE:edge" --format '{{json .Image}}' 2>/dev/null \
+            | jq -r '[.. | objects | .config? // empty | .Labels? // empty | ."io.github.floriandeutsch89.recipe"? // empty] | first // ""' || true)
+          echo "recipe=$recipe" >> "$GITHUB_OUTPUT"
+          echo "inputs: $recipe, published :edge: ${published:-none}"
+          if [ "$recipe" = "$published" ] && [ "$FORCE" != true ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "### $IMAGE: unchanged, not published" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.gate.outputs.publish == 'true'
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
       - name: Tags and labels
+        if: steps.gate.outputs.publish == 'true'
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
@@ -240,8 +274,10 @@ jobs:
           labels: |
             org.opencontainers.image.title=${{ matrix.image }}
             org.opencontainers.image.licenses=${{ matrix.licenses }}
+            io.github.floriandeutsch89.recipe=${{ steps.gate.outputs.recipe }}
 
       - name: Build & push (amd64 + arm64)
+        if: steps.gate.outputs.publish == 'true'
         id: push
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -258,6 +294,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=multi-${{ matrix.image }}
 
       - name: Attest build provenance
+        if: steps.gate.outputs.publish == 'true'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
@@ -266,6 +303,7 @@ jobs:
 
       # Bootstrap only: a new image gets :latest once; afterwards the promote workflow moves it.
       - name: Create :latest if missing
+        if: steps.gate.outputs.publish == 'true'
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
