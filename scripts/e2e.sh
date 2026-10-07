@@ -1,22 +1,30 @@
 #!/usr/bin/env bash
-# Runs the examples/ stack with the image under test (IMAGE) and checks routing,
+# Runs the examples/ stack with the image under test (E2E_IMAGE) and checks routing,
 # network isolation and CrowdSec end to end. Local certs instead of ACME.
 set -euo pipefail
-IMAGE=${IMAGE:-caddy:test}
+# Own variable: the workflow already sets IMAGE to the GHCR name.
+E2E_IMAGE=${E2E_IMAGE:-caddy:test}
 dir=$(mktemp -d)
 cp -r examples/. "$dir"
 cd "$dir"
 rm sites/*.caddy
+# Local CA instead of ACME; non-root cannot install it into a trust store anyway.
+# shellcheck disable=SC2016 # literal Caddyfile placeholder
+sed -i 's/^\temail {\$ACME_EMAIL}$/&\n\tskip_install_trust/' caddyfile
+grep -q skip_install_trust caddyfile
 for app in app1 app2; do
   printf '%s.localhost {\n\ttls internal\n\timport common\n\treverse_proxy %s:80\n}\n' "$app" "$app" > "sites/$app.caddy"
 done
 printf 'ACME_EMAIL=ci@example.com\nCROWDSEC_API_KEY=%s\n' "$(openssl rand -hex 32)" > .env
-printf 'services:\n  caddy:\n    image: %s\n' "$IMAGE" > compose.ci.yaml
+# pull_policy never: fail instead of silently testing a published image.
+printf 'services:\n  caddy:\n    image: %s\n    pull_policy: never\n' "$E2E_IMAGE" > compose.ci.yaml
 chmod -R a+rX .
 dc() { docker compose -f compose.yaml -f compose.ci.yaml "$@"; }
 cleanup() {
   local rc=$?
-  if [ "$rc" -ne 0 ]; then dc logs --no-color | tail -200; fi
+  if [ "$rc" -ne 0 ]; then
+    for svc in caddy crowdsec app1; do echo "== logs: $svc"; dc logs --no-color "$svc" | tail -60; done
+  fi
   dc down -v >/dev/null 2>&1 || true
   exit "$rc"
 }
