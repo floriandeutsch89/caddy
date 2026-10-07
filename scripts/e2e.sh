@@ -10,8 +10,8 @@ cd "$dir"
 rm sites/*.caddy
 # Local CA instead of ACME; non-root cannot install it into a trust store anyway.
 # shellcheck disable=SC2016 # literal Caddyfile placeholder
-sed -i 's/^\temail {\$ACME_EMAIL}$/&\n\tskip_install_trust/' caddyfile
-grep -q skip_install_trust caddyfile
+sed -i 's/^\temail {\$ACME_EMAIL}$/&\n\tskip_install_trust/' Caddyfile
+grep -q skip_install_trust Caddyfile
 for app in app1 app2; do
   printf '%s.localhost {\n\ttls internal\n\timport common\n\treverse_proxy %s:80\n}\n' "$app" "$app" > "sites/$app.caddy"
 done
