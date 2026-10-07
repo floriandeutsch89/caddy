@@ -71,7 +71,8 @@ for denied in /volumes /secrets /exec/x/json /swarm; do
   code=$(proxy "$denied")
   [ "$code" = 403 ] || { echo "::error::proxy allows $denied ($code)"; exit 1; }
 done
-watchtower_scheduled() { dc logs watchtower 2>&1 | grep -q 'Scheduling first run'; }
+# nickfedor fork: "Next scheduled run" (containrrr said "Scheduling first run").
+watchtower_scheduled() { dc logs watchtower 2>&1 | grep -q -E 'Next scheduled run|Scheduling first run'; }
 wait_for 30 "watchtower scheduled" watchtower_scheduled
 [ "$(docker inspect -f '{{.State.Running}}' "$(dc ps -q watchtower)")" = true ] || { echo "::error::watchtower not running"; exit 1; }
 
