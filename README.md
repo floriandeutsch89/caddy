@@ -97,14 +97,14 @@ An app that needs outbound internet gets an extra network of its own.
 
 Every hostname gets its own Let's Encrypt certificate, renewed automatically.
 
-- **Option 1: DNS (acme-dns).** For wildcards (`*.example.net`) or hosts not reachable from the
+- **Option 1: Hosting (default).** The hostname points to this server. Nothing to configure.
+  Not behind a proxying CDN (e.g. Cloudflare orange cloud); use option 2 there.
+- **Option 2: DNS (acme-dns).** For wildcards (`*.example.net`) or hosts not reachable from the
   internet. Register once per domain (`curl -X POST https://auth.acme-dns.io/register`), CNAME
   `_acme-challenge.<domain>` to the returned `fulldomain`, put the credentials into `.env`,
   rename `sites/wildcard.caddy.example` to `.caddy`.
-- **Option 2: Hosting (default).** The hostname points to this server. Nothing to configure.
-  Not behind a proxying CDN (e.g. Cloudflare orange cloud); use option 1 there.
 
-Use option 2 unless you need a wildcard. Both can be mixed.
+Use option 1 unless you need a wildcard. Both can be mixed.
 
 ## Plugins
 
