@@ -1,0 +1,30 @@
+# Weekly PRs; CI builds, smoke-tests and scans each one before merge.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: 'deps(go)'
+    groups:
+      go-modules:
+        patterns: ['*']
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: 'deps(docker)'
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: 'deps(actions)'
+    groups:
+      actions:
+        patterns: ['*']

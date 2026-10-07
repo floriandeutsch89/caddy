@@ -1,0 +1,28 @@
+# Smoke-test config: uses every plugin so `caddy validate` fails if one is
+# missing or its Caddyfile syntax breaks. Never served.
+{
+	order crowdsec first
+	order rate_limit after crowdsec
+	crowdsec {
+		api_url http://crowdsec:8080
+		api_key dummy
+	}
+	acme_dns acmedns {
+		username dummy
+		password dummy
+		subdomain dummy
+		server_url https://auth.example.com
+	}
+}
+
+example.com {
+	crowdsec
+	rate_limit {
+		zone per_ip {
+			key {remote_host}
+			events 100
+			window 1m
+		}
+	}
+	respond "ok"
+}
