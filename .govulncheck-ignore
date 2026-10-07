@@ -1,0 +1,2 @@
+# govulncheck has no ignore file; CI filters these IDs. Format: ID EXPIRY(YYYY-MM-DD) reason
+GO-2026-5641 2027-01-07 Same as CVE-2026-44982 in .trivyignore.yaml; vulndb entry is UNREVIEWED without package/symbol data, so every use of the crowdsec module matches.

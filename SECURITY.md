@@ -21,6 +21,7 @@ Only the latest image (`:latest`, `:2`, and the newest `:2.x.y`) gets rebuilds.
 - Go modules pinned and checksummed (`go.sum`), base images and actions pinned by digest/SHA,
   Dependabot with a 7-day cooldown.
 - Every build: govulncheck, Trivy (fails on fixable HIGH/CRITICAL), zizmor for workflows.
-  Accepted Trivy findings live in `.trivyignore.yaml`, each with a reason and an expiry.
+  Accepted findings live in `.trivyignore.yaml` and `.govulncheck-ignore`, each with a reason
+  and an expiry; an expired entry fails CI again.
 - Weekly rebuild for base image fixes; images carry an SBOM, BuildKit provenance and a
   Sigstore-signed GitHub attestation (`gh attestation verify`, see README).

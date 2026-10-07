@@ -39,9 +39,9 @@ jobs:
           go mod tidy -diff
           test -z "$(gofmt -l .)" || { gofmt -d .; exit 1; }
           go vet ./...
-      # Reachability-aware: only fails on vulns in code paths the binary uses.
+      # Reachability-aware; expiring exceptions in .govulncheck-ignore.
       - name: govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+        run: scripts/govulncheck.sh
       - name: zizmor (workflow security)
         run: pipx run zizmor==1.30.1 --offline --format=github .
 
