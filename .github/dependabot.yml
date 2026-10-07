@@ -44,3 +44,13 @@ updates:
       default-days: 7
     commit-message:
       prefix: 'deps(crowdsec)'
+  # Pinned helpers in the example (socket proxy, Watchtower); caddy/crowdsec stay on :latest.
+  - package-ecosystem: docker-compose
+    directory: /examples
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: 'deps(compose)'

@@ -29,7 +29,7 @@ cleanup() {
     docker inspect "$(dc ps -q caddy)" --format '{{json .NetworkSettings.Ports}} {{range $n, $e := .NetworkSettings.Networks}}{{$n}} gw={{$e.Gateway}} prio={{$e.GwPriority}}; {{end}}' || true
     echo "== crowdsec metrics"; dc exec -T crowdsec cscli metrics show acquisition parsers 2>&1 | tail -30 || true
     echo "== access.log (last 3)"; dc exec -T caddy tail -n 3 /var/log/caddy/access.log 2>&1 || true
-    for svc in caddy crowdsec app1; do echo "== logs: $svc"; dc logs --no-color "$svc" | tail -60; done
+    for svc in caddy crowdsec app1 socket-proxy watchtower; do echo "== logs: $svc"; dc logs --no-color "$svc" | tail -60; done
   fi
   dc down -v >/dev/null 2>&1 || true
   docker network rm caddy_app1 caddy_app2 >/dev/null 2>&1 || true
@@ -60,6 +60,20 @@ if docker run --rm --network caddy_app1 busybox wget -qT 3 -O /dev/null http://a
   echo "::error::app network caddy_app1 reaches app2"; exit 1; fi
 if docker run --rm --network caddy_app1 busybox wget -qT 3 -O /dev/null http://1.1.1.1 2>/dev/null; then
   echo "::error::app network caddy_app1 reaches the internet"; exit 1; fi
+
+echo "== socket proxy and watchtower"
+proxy_net=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$(dc ps -q socket-proxy)")
+proxy() { docker run --rm --network "$proxy_net" curlimages/curl -s -o /dev/null -w '%{http_code}' "http://socket-proxy:2375$1"; }
+proxy_up() { [ "$(proxy /_ping)" = 200 ]; }
+wait_for 30 "socket proxy answers" proxy_up
+[ "$(proxy /containers/json)" = 200 ] || { echo "::error::proxy blocks container listing"; exit 1; }
+for denied in /volumes /secrets /exec/x/json /swarm; do
+  code=$(proxy "$denied")
+  [ "$code" = 403 ] || { echo "::error::proxy allows $denied ($code)"; exit 1; }
+done
+watchtower_scheduled() { dc logs watchtower 2>&1 | grep -q 'Scheduling first run'; }
+wait_for 30 "watchtower scheduled" watchtower_scheduled
+[ "$(docker inspect -f '{{.State.Running}}' "$(dc ps -q watchtower)")" = true ] || { echo "::error::watchtower not running"; exit 1; }
 
 echo "== crowdsec reads the access log and the bouncer is registered"
 # CrowdSec tails from the end of the file once its hub setup is done, so lines

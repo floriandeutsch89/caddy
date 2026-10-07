@@ -147,6 +147,11 @@ To release: try `edge`, then run **Actions → promote** (image, tag `edge`), th
 digest shown in the run summary. Promote only non-breaking builds; a breaking one needs a
 compose change first.
 
+**Automatic updates:** Watchtower checks daily at 04:00 and recreates Caddy and CrowdSec
+(label `com.centurylinklabs.watchtower.enable=true`) when their `:latest` changed, i.e. after a
+promote. It reaches Docker only through a socket proxy that allows containers, images and
+networks; everything else is blocked. Without Watchtower: `docker compose pull && docker compose up -d`.
+
 Verify an image: `gh attestation verify oci://ghcr.io/floriandeutsch89/caddy:latest --owner floriandeutsch89`
 
 ## Build and update

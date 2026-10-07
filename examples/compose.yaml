@@ -41,6 +41,7 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "3" } # otherwise logs grow until the disk is full
     depends_on: [crowdsec]
+    labels: [com.centurylinklabs.watchtower.enable=true] # follows :latest, i.e. promoted builds
 
   # Detects attacks in Caddy's access log and shares bans with the bouncer in Caddy.
   # If it is down, Caddy keeps serving (fail-open), just without blocking.
@@ -63,6 +64,51 @@ services:
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
+    labels: [com.centurylinklabs.watchtower.enable=true]
+
+  # Docker API for Watchtower only, reduced to what it needs. Still powerful: whoever
+  # can create containers through it controls the host, so only Watchtower reaches it.
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1 # list, inspect, recreate
+      IMAGES: 1 # pull, remove old
+      NETWORKS: 1 # reattach networks on recreate
+      POST: 1 # write access for the sections above
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [socket_proxy]
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 64M, pids: 64 }
+    logging: &small-logs
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
+
+  # Daily check for new :latest images of labeled containers (Caddy, CrowdSec).
+  # Since :latest only moves via promote, this deploys exactly what you promoted.
+  watchtower:
+    image: nickfedor/watchtower:1.23.0@sha256:45b54f6dc15227cfb38dbb826f2881aa0f56aaf0c255cdbb38bd80e598bdca9a
+    restart: unless-stopped
+    environment:
+      DOCKER_HOST: tcp://socket-proxy:2375
+      WATCHTOWER_LABEL_ENABLE: "true" # only containers with the label
+      WATCHTOWER_CLEANUP: "true" # remove replaced images
+      WATCHTOWER_SCHEDULE: "0 0 4 * * *" # 04:00 daily (seconds field first)
+      TZ: ${TZ:-Europe/Berlin}
+    networks:
+      - socket_proxy
+      - watchtower_egress # registry checks
+    depends_on: [socket-proxy]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 64M, pids: 64 }
+    logging: *small-logs
 
   # Demo upstreams. Real apps usually live in their own compose project and join
   # their network as `external: true` (README).
@@ -81,6 +127,9 @@ services:
 networks:
   caddy_egress:
     name: caddy_egress
+  socket_proxy:
+    internal: true # Watchtower <-> proxy only
+  watchtower_egress: {}
   # App networks live outside every stack, so Caddy and app stacks start and stop
   # independently. Create once: docker network create --internal caddy_app1
   # (--internal = no internet; give an app that needs it an extra network of its own).
