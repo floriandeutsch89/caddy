@@ -76,7 +76,7 @@ jobs:
           WANT: v${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          run() { docker run --rm -v "$PWD:/repo:ro" -e DOMAIN=example.com -e ACME_EMAIL=a@example.com caddy:test "$@"; }
+          run() { docker run --rm -v "$PWD:/repo:ro" --env-file test/validate.env caddy:test "$@"; }
           got=$(run caddy version | cut -d' ' -f1)
           [ "$got" = "$WANT" ] || { echo "::error::caddy version $got, go.mod says $WANT"; exit 1; }
           mods=$(run caddy list-modules)
@@ -86,6 +86,11 @@ jobs:
           [ "$(run id -u)" = 10001 ] || { echo "::error::image does not run as UID 10001"; exit 1; }
           run caddy validate --config /repo/test/Caddyfile --adapter caddyfile
           run caddy validate --config /repo/examples/Caddyfile --adapter caddyfile
+          # Example with the opt-in wildcard site enabled.
+          ex=$(mktemp -d) && cp -r examples/. "$ex" && chmod -R a+rX "$ex"
+          cp "$ex/sites/wildcard.caddy.example" "$ex/sites/wildcard.caddy"
+          docker run --rm -v "$ex:/ex:ro" --env-file test/validate.env caddy:test \
+            caddy validate --config /ex/Caddyfile --adapter caddyfile
           # Hardened like the README example; non-root must still bind :80
           # (relies on Docker's unprivileged port range, not on capabilities).
           docker run -d --name smoke -p 8080:80 \

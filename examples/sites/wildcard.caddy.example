@@ -1,0 +1,22 @@
+# Wildcard via DNS-01 with acme-dns. Rename to wildcard.caddy to enable.
+# One acme-dns registration per base domain; CNAME _acme-challenge.example.net
+# to the registration's fulldomain first (README).
+*.example.net, example.net {
+	import common
+	tls {
+		dns acmedns {
+			username {$ACMEDNS_USERNAME}
+			password {$ACMEDNS_PASSWORD}
+			subdomain {$ACMEDNS_SUBDOMAIN}
+			server_url {$ACMEDNS_SERVER_URL}
+		}
+	}
+
+	@app host app.example.net
+	handle @app {
+		reverse_proxy app:80
+	}
+	handle {
+		abort
+	}
+}

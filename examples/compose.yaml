@@ -1,4 +1,4 @@
-# Getting-started stack: Caddy in front of a demo app. Replace `app` with yours.
+# Getting-started stack: Caddy in front of a demo app. Add your upstreams as services.
 services:
   caddy:
     image: ghcr.io/floriandeutsch89/caddy:2 # pin a digest in production
@@ -10,6 +10,7 @@ services:
     env_file: .env
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro
       - caddy-data:/data # certificates and ACME account: must persist
       - caddy-config:/config
     read_only: true

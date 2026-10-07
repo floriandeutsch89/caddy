@@ -1,0 +1,15 @@
+# One site, HTTP-01/TLS-ALPN challenge (default). Copy this file per site.
+app.example.com {
+	import common
+	reverse_proxy app:80
+}
+
+# Several hostnames, one certificate each; www redirects to the apex.
+example.org {
+	import common
+	reverse_proxy app:80
+}
+
+www.example.org {
+	redir https://example.org{uri} permanent
+}

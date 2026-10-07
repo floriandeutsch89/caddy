@@ -16,55 +16,70 @@ ghcr.io/floriandeutsch89/caddy:2.11.7   # also :2.11, :2, :latest, :sha-<commit>
 
 ## Getting started
 
-**You need:** Docker with Compose, a domain whose A/AAAA record points to the host, and
-ports 80 and 443 (TCP + UDP) reachable from the internet.
+**You need:** Docker with Compose, A/AAAA records for every hostname pointing to the host,
+and ports 80 and 443 (TCP + UDP) reachable from the internet.
 
-1. **Copy the example stack**
+1. **Get the example stack**
 
    ```sh
-   mkdir caddy && cd caddy
-   base=https://raw.githubusercontent.com/floriandeutsch89/caddy/main/examples
-   curl -fsSL -O "$base/compose.yaml" -O "$base/Caddyfile"
-   curl -fsSL "$base/.env.example" -o .env
+   git clone --depth 1 https://github.com/floriandeutsch89/caddy.git caddy-src
+   cp -r caddy-src/examples caddy && cd caddy && cp .env.example .env
    ```
 
-   If the repo is private, clone it instead and `cd examples && cp .env.example .env`.
    If the image is private, run `docker login ghcr.io` first (token with `read:packages`).
 
-2. **Configure:** set `DOMAIN` and `ACME_EMAIL` in `.env`. Replace the `app` service in
-   `compose.yaml` and the `reverse_proxy app:80` line with your upstream.
+2. **Configure**
+   - `.env`: set `ACME_EMAIL` (Let's Encrypt expiry and problem notices).
+   - `sites/`: one `*.caddy` file per site. Edit `sites/app.caddy`, copy it for more sites.
+     Every hostname gets its own certificate; nothing else to configure for TLS.
+   - `compose.yaml`: replace the demo `app` service with your upstreams. They must share a
+     Docker network with Caddy (the default compose network does).
 
 3. **Start and check**
 
    ```sh
    docker compose up -d
-   docker compose logs -f caddy        # wait for "certificate obtained successfully"
-   curl -I "https://$(grep ^DOMAIN= .env | cut -d= -f2)"
+   docker compose logs -f caddy        # wait for "certificate obtained successfully" per host
+   curl -I https://app.example.com
    ```
 
-4. **Change the config** without a restart:
+4. **Add or change a site** without a restart: edit `sites/`, then
 
    ```sh
    docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
    ```
 
+   A broken config is rejected and the running one stays active.
+
 The example runs read-only, with all capabilities dropped and as UID `10001`. New named
 volumes take their ownership from the image, so nothing to chown on a fresh install.
 
+### Layout
+
+| File | Purpose |
+|---|---|
+| `Caddyfile` | Global options, the shared `(common)` snippet (compression, security headers, rate limit, CrowdSec), `import sites/*.caddy` |
+| `sites/*.caddy` | One file per site; start each with `import common` |
+| `sites/wildcard.caddy.example` | Wildcard certificate via acme-dns; rename to `.caddy` to enable |
+
+Many sites on one host are fine: certificates are issued and renewed independently, and
+Let's Encrypt's limits (50 certificates per registered domain per week) only matter for
+hundreds of subdomains. Then use a wildcard instead.
+
 ### Enable the plugins
 
-All three are prepared in [`examples/Caddyfile`](examples/Caddyfile); uncomment and fill `.env`.
-
-- **Rate limit** (on by default in the example): 300 requests/min per client IP. Behind
-  another proxy or CDN, `{remote_host}` is that proxy; configure `trusted_proxies` and key on
+- **Rate limit** (on by default via `common`): 300 requests/min per client IP. Behind another
+  proxy or CDN, `{remote_host}` is that proxy; configure `trusted_proxies` and key on
   `{client_ip}` instead.
 - **CrowdSec:** needs a running CrowdSec LAPI that reads Caddy's access log. Create the key
   with `cscli bouncers add caddy-bouncer`, put it into `CROWDSEC_API_KEY`, uncomment the
-  `crowdsec` blocks.
-- **acme-dns (DNS-01):** for wildcard certificates or hosts not reachable on 80/443. Register
-  once against your acme-dns server (`curl -X POST https://auth.acme-dns.io/register`), set
-  the CNAME `_acme-challenge.<domain>` to the returned `fulldomain`, fill the `ACMEDNS_*`
-  values, uncomment the `acme_dns` block.
+  `crowdsec` lines in `Caddyfile` (global block and `common`).
+- **acme-dns (DNS-01):** only for wildcards or hosts not reachable on 80/443; the other sites
+  keep the default HTTP challenge. Per base domain: register against your acme-dns server
+  (`curl -X POST https://auth.acme-dns.io/register`), CNAME `_acme-challenge.<domain>` to the
+  returned `fulldomain`, put the credentials into `.env`, rename
+  `sites/wildcard.caddy.example`. A second wildcard domain needs its own registration, so give
+  it its own variable names.
 
 Plugin directives have no default order, so the Caddyfile must set one (`order …` in the
 global options); [`test/Caddyfile`](test/Caddyfile) shows every plugin's syntax and is
