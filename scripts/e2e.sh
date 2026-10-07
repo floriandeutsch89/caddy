@@ -13,7 +13,7 @@ rm sites/*.caddy
 sed -i 's/^\temail {\$ACME_EMAIL}$/&\n\tskip_install_trust/' Caddyfile
 grep -q skip_install_trust Caddyfile
 for app in app1 app2; do
-  printf '%s.localhost {\n\ttls internal\n\timport common\n\treverse_proxy %s:80\n}\n' "$app" "$app" > "sites/$app.caddy"
+  printf '%s.example.test {\n\ttls internal\n\timport common\n\treverse_proxy %s:80\n}\n' "$app" "$app" > "sites/$app.caddy"
 done
 printf 'ACME_EMAIL=ci@example.com\nCROWDSEC_API_KEY=%s\n' "$(openssl rand -hex 32)" > .env
 # pull_policy never: fail instead of silently testing a published image.
@@ -24,6 +24,9 @@ dc() { docker compose -f compose.yaml -f compose.ci.yaml "$@"; }
 cleanup() {
   local rc=$?
   if [ "$rc" -ne 0 ]; then
+    echo "== diagnostics"
+    curl -skv --max-time 5 --resolve app1.example.test:443:127.0.0.1 https://app1.example.test/ -o /dev/null 2>&1 | tail -15 || true
+    docker inspect "$(dc ps -q caddy)" --format '{{json .NetworkSettings.Ports}} {{range $n, $e := .NetworkSettings.Networks}}{{$n}} gw={{$e.Gateway}} prio={{$e.GwPriority}}; {{end}}' || true
     for svc in caddy crowdsec app1; do echo "== logs: $svc"; dc logs --no-color "$svc" | tail -60; done
   fi
   dc down -v >/dev/null 2>&1 || true
@@ -35,7 +38,8 @@ trap cleanup EXIT
 # External app networks, created like on a server (README).
 for net in caddy_app1 caddy_app2; do docker network create --internal "$net" >/dev/null; done
 dc up -d --quiet-pull
-get() { curl -sk -o /dev/null -w '%{http_code}' --resolve "$1.localhost:443:127.0.0.1" "https://$1.localhost/"; }
+# .example.test, not .localhost: curl and Caddy both special-case localhost names.
+get() { curl -sk -o /dev/null -w '%{http_code}' --resolve "$1.example.test:443:127.0.0.1" "https://$1.example.test/"; }
 wait_for() { # wait_for <seconds> <description> <command...>
   local t=$1 what=$2; shift 2
   for _ in $(seq "$t"); do "$@" && return 0; sleep 1; done

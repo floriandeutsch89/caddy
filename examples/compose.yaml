@@ -15,9 +15,11 @@ services:
       - caddy-config:/config
       - caddy-logs:/var/log/caddy # access log for CrowdSec
     networks:
-      - caddy_egress # ACME, OCSP, CrowdSec LAPI
-      - caddy_app1
-      - caddy_app2
+      # Default gateway: published ports and outbound traffic must not land on an
+      # internal app network (Docker would pick one otherwise). Docker >= 28.
+      caddy_egress: { gw_priority: 1 } # ACME, OCSP, CrowdSec LAPI
+      caddy_app1: {}
+      caddy_app2: {}
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]

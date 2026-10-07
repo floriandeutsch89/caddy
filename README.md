@@ -17,7 +17,7 @@ ghcr.io/floriandeutsch89/crowdsec:latest
 
 ## Getting started
 
-You need Docker with Compose, DNS records for each hostname pointing to the server, and ports
+You need Docker ≥ 28 with Compose ≥ 2.33, DNS records for each hostname pointing to the server, and ports
 80/443 open.
 
 ```sh

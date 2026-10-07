@@ -119,11 +119,13 @@ jobs:
         uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
         with:
           dockerfile: ${{ matrix.context }}/Dockerfile
-      - name: Misconfiguration scan (Dockerfile)
+      # Whole repo once: exceptions in .trivyignore.yaml match repo-relative paths.
+      - name: Misconfiguration scan (all Dockerfiles)
+        if: matrix.image == 'caddy'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
-          scan-ref: ${{ matrix.context }}/Dockerfile
+          scan-ref: .
           severity: CRITICAL,HIGH
           trivyignores: .trivyignore.yaml
           exit-code: '1'
