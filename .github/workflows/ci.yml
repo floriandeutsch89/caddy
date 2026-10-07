@@ -13,9 +13,10 @@ on:
 permissions:
   contents: read # checkout only; publish widens its own job
 
+# A newer push cancels the older run, publish included: the newer run publishes anyway.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/caddy
