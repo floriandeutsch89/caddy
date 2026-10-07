@@ -22,6 +22,8 @@ Only `:edge` gets new builds; `:latest` is a promoted `:edge`. Older tags are no
   Trivy image scan failing on fixable HIGH/CRITICAL, Trivy Dockerfile misconfiguration scan).
   Accepted findings live in `.trivyignore.yaml` and `.govulncheck-ignore`, each with a reason
   and an expiry; an expired entry fails CI again.
+- Every push and PR, docs included: gitleaks over the full history and a check that no `.env`,
+  key or CrowdSec credentials file is tracked (`.github/workflows/secrets.yml`).
 - Weekly re-scan with fresh vulnerability data; base image fixes arrive as Dependabot PRs.
 - Images carry an SBOM, BuildKit provenance and a Sigstore-signed GitHub attestation
   (`gh attestation verify`, see README).

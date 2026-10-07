@@ -1,1 +1,4 @@
 /caddy
+# Real secrets live here on servers; never commit it.
+examples/.env
+.env
