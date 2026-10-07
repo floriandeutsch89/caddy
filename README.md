@@ -25,6 +25,8 @@ git clone --depth 1 https://github.com/floriandeutsch89/caddy.git caddy-src
 cp -r caddy-src/examples caddy && cd caddy && cp .env.example .env
 sed -i "s/^CROWDSEC_API_KEY=.*/CROWDSEC_API_KEY=$(openssl rand -hex 32)/" .env
 # set ACME_EMAIL in .env, edit sites/*.caddy and the apps in compose.yaml
+docker network create --internal caddy_app1   # once per app, see below
+docker network create --internal caddy_app2
 docker compose up -d
 docker compose logs -f caddy   # wait for "certificate obtained successfully"
 ```
@@ -60,15 +62,20 @@ limit. Files not ending in
 ## Apps and networks
 
 Each app gets its own internal network; only Caddy is on all of them, so apps cannot reach each
-other or the internet:
+other or the internet. The networks belong to no stack (`external: true` everywhere), so Caddy
+and every app stack start, stop and redeploy independently:
 
 ```
 internet ── caddy_egress ── caddy ──┬── caddy_app1 ── app1
                                     └── caddy_app2 ── app2
 ```
 
-To add an app: add `caddy_app3` (`internal: true`) to `compose.yaml` and to the `caddy`
-service, run `docker compose up -d caddy`, then join it from the app's own stack:
+To add an app:
+
+1. `docker network create --internal caddy_app3`
+2. Add `caddy_app3` to the `caddy` service and as `external: true` to `compose.yaml`, then
+   `docker compose up -d caddy`.
+3. Join it from the app's own stack:
 
 ```yaml
 services:
@@ -81,6 +88,8 @@ networks:
   caddy_app3:
     external: true
 ```
+
+4. Add `sites/app3.caddy` and reload Caddy.
 
 An app that needs outbound internet gets an extra network of its own.
 

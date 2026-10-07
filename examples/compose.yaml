@@ -79,14 +79,13 @@ services:
 networks:
   caddy_egress:
     name: caddy_egress
-  # Fixed names so other compose projects can join. internal = no internet access;
-  # give an app that needs outbound traffic an extra network of its own.
+  # App networks live outside every stack, so Caddy and app stacks start and stop
+  # independently. Create once: docker network create --internal caddy_app1
+  # (--internal = no internet; give an app that needs it an extra network of its own).
   caddy_app1:
-    name: caddy_app1
-    internal: true
+    external: true
   caddy_app2:
-    name: caddy_app2
-    internal: true
+    external: true
 
 volumes:
   caddy-data:

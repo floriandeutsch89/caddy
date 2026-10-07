@@ -27,10 +27,13 @@ cleanup() {
     for svc in caddy crowdsec app1; do echo "== logs: $svc"; dc logs --no-color "$svc" | tail -60; done
   fi
   dc down -v >/dev/null 2>&1 || true
+  docker network rm caddy_app1 caddy_app2 >/dev/null 2>&1 || true
   exit "$rc"
 }
 trap cleanup EXIT
 
+# External app networks, created like on a server (README).
+for net in caddy_app1 caddy_app2; do docker network create --internal "$net" >/dev/null; done
 dc up -d --quiet-pull
 get() { curl -sk -o /dev/null -w '%{http_code}' --resolve "$1.localhost:443:127.0.0.1" "https://$1.localhost/"; }
 wait_for() { # wait_for <seconds> <description> <command...>
