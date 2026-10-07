@@ -35,12 +35,12 @@ updates:
     groups:
       actions:
         patterns: ['*']
-  - package-ecosystem: docker-compose
-    directory: /examples
+  - package-ecosystem: docker
+    directory: /crowdsec
     schedule:
       interval: weekly
       day: monday
     cooldown:
       default-days: 7
     commit-message:
-      prefix: 'deps(compose)'
+      prefix: 'deps(crowdsec)'

@@ -1,0 +1,51 @@
+# Moves :latest to a tested build. The only way :latest changes after its first
+# publish, so compose files using :latest get updates only when promoted.
+name: promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Image
+        type: choice
+        options: [caddy, crowdsec]
+      from:
+        description: Tag (edge, 2.11.7, sha-<commit>) or digest (sha256:…) to promote; a digest also rolls back
+        default: edge
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: promote-${{ inputs.image }}
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write # retag in GHCR
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/${{ inputs.image }}
+      FROM: ${{ inputs.from }}
+    steps:
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Retag
+        run: |
+          set -euo pipefail
+          if [[ "$FROM" =~ ^sha256:[a-f0-9]{64}$ ]]; then ref="$IMAGE@$FROM"
+          elif [[ "$FROM" =~ ^[A-Za-z0-9._-]+$ ]]; then ref="$IMAGE:$FROM"
+          else echo "::error::invalid tag or digest '$FROM'"; exit 1; fi
+          old=$(docker buildx imagetools inspect "$IMAGE:latest" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' || true)
+          digest=$(docker buildx imagetools inspect "$ref" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          docker buildx imagetools create -t "$IMAGE:latest" "$IMAGE@$digest"
+          {
+            echo "### $IMAGE:latest"
+            echo "- from: \`$FROM\`"
+            echo "- digest: \`$digest\`"
+            echo "- previous: \`${old:-none}\` (promote this digest to roll back)"
+          } >> "$GITHUB_STEP_SUMMARY"

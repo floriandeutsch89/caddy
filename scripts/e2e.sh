@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Runs the examples/ stack with the image under test (E2E_IMAGE) and checks routing,
+# Runs the examples/ stack with the images under test and checks routing,
 # network isolation and CrowdSec end to end. Local certs instead of ACME.
 set -euo pipefail
-# Own variable: the workflow already sets IMAGE to the GHCR name.
 E2E_IMAGE=${E2E_IMAGE:-caddy:test}
+E2E_CROWDSEC_IMAGE=${E2E_CROWDSEC_IMAGE:-crowdsec:test}
 dir=$(mktemp -d)
 cp -r examples/. "$dir"
 cd "$dir"
@@ -17,7 +17,8 @@ for app in app1 app2; do
 done
 printf 'ACME_EMAIL=ci@example.com\nCROWDSEC_API_KEY=%s\n' "$(openssl rand -hex 32)" > .env
 # pull_policy never: fail instead of silently testing a published image.
-printf 'services:\n  caddy:\n    image: %s\n    pull_policy: never\n' "$E2E_IMAGE" > compose.ci.yaml
+printf 'services:\n  caddy:\n    image: %s\n    pull_policy: never\n  crowdsec:\n    image: %s\n    pull_policy: never\n' \
+  "$E2E_IMAGE" "$E2E_CROWDSEC_IMAGE" > compose.ci.yaml
 chmod -R a+rX .
 dc() { docker compose -f compose.yaml -f compose.ci.yaml "$@"; }
 cleanup() {

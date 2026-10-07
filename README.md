@@ -8,8 +8,11 @@ Caddy 2 for hosting many small sites on one server, with these plugins (amd64, a
 - [caddy-dns/acmedns](https://github.com/caddy-dns/acmedns) (MIT): wildcard certificates via DNS
 - [caddy-ratelimit](https://github.com/mholt/caddy-ratelimit) (Apache-2.0): per-IP rate limits
 
+Plus a matching CrowdSec image with the Caddy collections baked in. Both: amd64 and arm64.
+
 ```
-ghcr.io/floriandeutsch89/caddy:2.11.7   # also :2.11, :2, :latest
+ghcr.io/floriandeutsch89/caddy:latest
+ghcr.io/floriandeutsch89/crowdsec:latest
 ```
 
 ## Getting started
@@ -31,7 +34,6 @@ docker compose logs -f caddy   # wait for "certificate obtained successfully"
 | `Caddyfile` | Global options, shared `(common)` snippet, `import sites/*.caddy` |
 | `sites/*.caddy` | One file per site |
 | `compose.yaml` | Caddy, CrowdSec, demo apps, one network per app, resource limits |
-| `crowdsec/acquis.yaml` | Tells CrowdSec to read Caddy's access log |
 
 ## Sites
 
@@ -100,8 +102,9 @@ Use option 2 unless you need a wildcard. Both can be mixed.
 - **Rate limit:** 1000 requests/min per IP for pages and API calls; static assets (CSS, JS,
   images, fonts) are not counted. Behind a CDN, key on `{client_ip}` with `trusted_proxies`.
 - **CrowdSec:** runs next to Caddy, reads its access log and bans attacking IPs; Caddy blocks
-  them on every site. Collections: `crowdsecurity/caddy` (HTTP probing, crawling, brute force,
-  CVE probes) and `crowdsecurity/whitelist-good-actors`. Also pulls the community blocklist.
+  them on every site. The image brings the collections `crowdsecurity/caddy` (HTTP probing,
+  crawling, brute force, CVE probes) and `crowdsecurity/whitelist-good-actors` and the log
+  config ([`crowdsec/`](crowdsec/)). Also pulls the community blocklist.
   If CrowdSec is down, sites keep working without blocking. Check it:
   `docker compose exec crowdsec cscli metrics` and `cscli decisions list`.
 
@@ -121,14 +124,21 @@ The image runs as UID `10001`. New named volumes work as is. Otherwise:
 - **Ports 80/443** work in Docker's default network mode. With `network_mode: host` or on
   Kubernetes, set `net.ipv4.ip_unprivileged_port_start=0`.
 
-## Production
+## Tags and updates
 
-Tags move with every dependency update. Pin the digest and verify it:
+| Tag | Moves when |
+|---|---|
+| `latest` | Only when promoted by hand. Use this in compose. |
+| `edge` | Every push to `main` (tested, not yet promoted) |
+| `2.11.7` / `1.8.1` | Upstream version; newest build of it |
+| `sha-<commit>` | Never |
 
-```sh
-docker buildx imagetools inspect ghcr.io/floriandeutsch89/caddy:2.11.7
-gh attestation verify oci://ghcr.io/floriandeutsch89/caddy:2.11.7 --owner floriandeutsch89
-```
+To release: try `edge`, then run **Actions → promote** (image, tag `edge`), then
+`docker compose pull && docker compose up -d` on the server. To roll back, promote the previous
+digest shown in the run summary. Promote only non-breaking builds; a breaking one needs a
+compose change first.
+
+Verify an image: `gh attestation verify oci://ghcr.io/floriandeutsch89/caddy:latest --owner floriandeutsch89`
 
 ## Build and update
 

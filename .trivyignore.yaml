@@ -11,3 +11,12 @@ vulnerabilities:
       release depends on crowdsec >= 1.7.8 (also
       remove GO-2026-5641 from .govulncheck-ignore).
     expired_at: 2027-01-07
+misconfigurations:
+  - id: DS-0002
+    paths:
+      - crowdsec/Dockerfile
+    statement: >-
+      The upstream CrowdSec image runs as root by design: its entrypoint writes
+      /etc/crowdsec, registers bouncers and reads logs owned by other UIDs.
+      Caddy, the internet-facing part, runs as non-root. Re-check on expiry.
+    expired_at: 2027-04-07

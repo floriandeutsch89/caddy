@@ -1,7 +1,7 @@
 # One Caddy for all sites; one internal network per app, so apps cannot reach each other.
 services:
   caddy:
-    image: ghcr.io/floriandeutsch89/caddy:2 # pin a digest in production
+    image: ghcr.io/floriandeutsch89/caddy:latest # moves only when promoted (README)
     restart: unless-stopped
     ports:
       - "80:80"
@@ -43,17 +43,14 @@ services:
   # Detects attacks in Caddy's access log and shares bans with the bouncer in Caddy.
   # If it is down, Caddy keeps serving (fail-open), just without blocking.
   crowdsec:
-    image: crowdsecurity/crowdsec:v1.8.1@sha256:0f2523fa61ef507f15d953045cface490cc880670c62f2755ced17524107f71a
+    # Collections and log acquisition are baked in (crowdsec/ in this repo).
+    image: ghcr.io/floriandeutsch89/crowdsec:latest # moves only when promoted (README)
     restart: unless-stopped
     environment:
-      # caddy: log parser + HTTP scenarios (probing, crawling, brute force, CVE probes).
-      # whitelist-good-actors: never ban well-known bots, CDNs and DNS resolvers.
-      COLLECTIONS: crowdsecurity/caddy crowdsecurity/whitelist-good-actors
       # Registers Caddy's bouncer key on start; no cscli step needed.
       BOUNCER_KEY_caddy: ${CROWDSEC_API_KEY:?set CROWDSEC_API_KEY in .env}
     volumes:
-      - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
-      - crowdsec-config:/etc/crowdsec
+      - crowdsec-config:/etc/crowdsec # also holds the Central API registration: must persist
       - crowdsec-data:/var/lib/crowdsec/data
       - caddy-logs:/var/log/caddy:ro
     networks: [caddy_egress] # hub updates + community blocklist; Caddy reaches the LAPI here
