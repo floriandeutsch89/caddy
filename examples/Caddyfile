@@ -22,10 +22,12 @@
 		-Server
 	}
 	# crowdsec
-	rate_limit {
+	# Static assets are not counted; pages and API calls are.
+	@limited not path *.css *.js *.mjs *.map *.png *.jpg *.jpeg *.gif *.svg *.webp *.avif *.ico *.woff *.woff2
+	rate_limit @limited {
 		zone per_ip {
 			key {remote_host}
-			events 300
+			events 1000
 			window 1m
 		}
 	}
