@@ -63,6 +63,29 @@ volumes take their ownership from the image, so nothing to chown on a fresh inst
 | `compose.yaml` | Caddy on `caddy_egress` (internet) plus one internal network per app |
 | `sites/wildcard.caddy.example` | Wildcard certificate via acme-dns; rename to `.caddy` to enable |
 
+### Multiple sites
+
+Caddy reads exactly one file, `/etc/caddy/Caddyfile`. That file pulls in all site files with
+one line:
+
+```caddyfile
+import sites/*.caddy
+```
+
+The path is relative to the Caddyfile, and compose mounts `./sites` to `/etc/caddy/sites`. So
+a new site is a new file, e.g. `sites/shop.caddy`:
+
+```caddyfile
+shop.example.com {
+	import common
+	reverse_proxy shop:8080
+}
+```
+
+then `caddy reload` (Getting started, step 4). Files not ending in `.caddy` are ignored, which
+is how `wildcard.caddy.example` stays disabled. Each site block may list several hostnames
+(`a.example.com, b.example.com { … }`); every hostname gets its own certificate.
+
 ### Networks: one per app
 
 Caddy joins every app network; each app joins only its own. Apps therefore cannot reach each

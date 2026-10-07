@@ -1,16 +1,14 @@
 # Security policy
 
-## Reporting a vulnerability
+## Reporting vulnerabilities
 
-Please report privately via **Security → Report a vulnerability** on this repository
-(GitHub private vulnerability reporting), not in a public issue.
-
-Vulnerabilities in Caddy itself or a plugin belong upstream:
+This repository only builds and publishes the image; it contains no code of its own beyond the
+build recipe. Report vulnerabilities upstream:
 [Caddy](https://github.com/caddyserver/caddy/security),
 [caddy-crowdsec-bouncer](https://github.com/hslatman/caddy-crowdsec-bouncer/security),
 [caddy-dns/acmedns](https://github.com/caddy-dns/acmedns),
-[caddy-ratelimit](https://github.com/mholt/caddy-ratelimit). Once fixed there, the fix
-lands here via Dependabot and the next build.
+[caddy-ratelimit](https://github.com/mholt/caddy-ratelimit). Once fixed there, the fix lands
+here via Dependabot and the next build.
 
 ## Supported versions
 
