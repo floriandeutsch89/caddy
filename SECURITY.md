@@ -27,5 +27,19 @@ Only `:edge` gets new builds; `:latest` is a promoted `:edge`. Older tags are no
 - Weekly re-scan with fresh vulnerability data; base image fixes arrive as Dependabot PRs.
 - Images carry an SBOM, BuildKit provenance and a Sigstore-signed GitHub attestation
   (`gh attestation verify`, see README).
+- Accepted: CVE-2026-44982 (AppSec ignores bodies of chunked/HTTP/2 requests; fixed in
+  CrowdSec 1.7.8). Trivy and govulncheck flag the Caddy binary because the bouncer pulls in
+  the crowdsec Go module v1.6.3, but the binary links only its API client, not the AppSec
+  engine. The engine runs in the CrowdSec image (1.8.1, fixed). The bouncer does not yet
+  compile against crowdsec >= 1.7.8; the exception goes once a bouncer release does.
 - The CrowdSec image is upstream `crowdsecurity/crowdsec` plus config. Its CVE scan is reported
   but does not block: fixes come from upstream releases via Dependabot.
+
+## Runtime protection (example stack)
+
+- Caddy runs as UID 10001, group 0, without capabilities, read-only root filesystem.
+- CrowdSec bans IPs from Caddy's access log and the community blocklist; Caddy blocks them.
+- CrowdSec AppSec (WAF) checks each request against virtual patches for known CVEs and
+  generic attack rules and answers 403. It sits after the rate limit, inspects bodies up to
+  1 MiB, is reachable only from Caddy (`caddy_egress`, bouncer key) and fails open: if
+  CrowdSec is down, sites stay up without WAF and IP blocking.
