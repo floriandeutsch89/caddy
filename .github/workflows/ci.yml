@@ -49,6 +49,17 @@ jobs:
         run: scripts/govulncheck.sh
       - name: zizmor (workflow security)
         run: pipx run zizmor==1.30.1 --offline --format=github .
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.13.3
+          terraform_wrapper: false
+      - name: Terraform and cloud-init (infra/)
+        run: |
+          terraform -chdir=infra/terraform fmt -check -diff
+          terraform -chdir=infra/terraform init -backend=false -input=false
+          terraform -chdir=infra/terraform validate
+          head -1 infra/cloud-init.yaml | grep -qx '#cloud-config'
+          python3 -c "import yaml; assert yaml.safe_load(open('infra/cloud-init.yaml'))['runcmd']"
 
   test:
     runs-on: ubuntu-latest

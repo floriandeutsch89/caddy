@@ -1,0 +1,5 @@
+# Copy to terraform.tfvars (ignored by git). The token goes into TF_VAR_hcloud_token.
+ssh_public_key = "ssh-ed25519 AAAA... you@laptop"
+# ssh_allowed_cidrs = ["203.0.113.5/32"]
+# server_type     = "cax11"
+# location        = "nbg1"

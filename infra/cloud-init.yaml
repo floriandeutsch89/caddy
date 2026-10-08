@@ -1,0 +1,76 @@
+#cloud-config
+# First boot of a Docker host for this stack (Ubuntu 24.04). Paste as "Cloud config"
+# when creating a Hetzner server, or let infra/terraform pass it. Takes ~3 minutes;
+# check with `cloud-init status --wait`. Prepares /opt/caddy but does not start it:
+# edit .env and config/sites first (README, "Server on Hetzner").
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - jq
+  - fail2ban
+  - unattended-upgrades
+
+write_files:
+  # Keys only; the SSH key is injected by Hetzner.
+  - path: /etc/ssh/sshd_config.d/99-hardening.conf
+    content: |
+      PermitRootLogin prohibit-password
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      MaxAuthTries 3
+
+  # backend=systemd: the cloud image logs to the journal, a file jail would never match.
+  - path: /etc/fail2ban/jail.local
+    content: |
+      [DEFAULT]
+      backend = systemd
+      bantime = 1h
+      findtime = 10m
+      maxretry = 5
+
+      [sshd]
+      enabled = true
+
+  # Defaults for every container: bounded logs; live-restore keeps containers
+  # running while dockerd restarts.
+  - path: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "10m", "max-file": "3" },
+        "live-restore": true
+      }
+
+  # Security updates daily; reboot for kernel updates at 03:30, before
+  # Watchtower's 04:00 run (containers come back via restart: unless-stopped).
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+  - path: /etc/apt/apt.conf.d/52unattended-reboot
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "03:30";
+
+runcmd:
+  # Docker from Docker's apt repo (Ubuntu's docker.io lags behind).
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - . /etc/os-release && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $VERSION_CODENAME stable" > /etc/apt/sources.list.d/docker.list
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - systemctl enable --now docker
+  - systemctl restart ssh
+  - systemctl enable --now fail2ban
+  # Stack skeleton: example config, .env with a fresh CrowdSec key, app networks.
+  - git clone --depth 1 https://github.com/floriandeutsch89/caddy-crowdsec.git /opt/caddy-src
+  - test -d /opt/caddy || cp -r /opt/caddy-src/examples /opt/caddy
+  - cd /opt/caddy && test -f .env || { cp .env.example .env && sed -i "s/^CROWDSEC_API_KEY=.*/CROWDSEC_API_KEY=$(openssl rand -hex 32)/" .env; }
+  - chmod 600 /opt/caddy/.env
+  - for n in caddy_app1 caddy_app2; do docker network inspect "$n" >/dev/null 2>&1 || docker network create --internal "$n"; done
