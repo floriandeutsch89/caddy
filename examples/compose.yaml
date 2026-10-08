@@ -2,6 +2,7 @@
 services:
   caddy:
     image: ghcr.io/floriandeutsch89/caddy:latest # moves only when promoted (README)
+    container_name: caddy # one per host: `docker logs caddy` from anywhere
     restart: unless-stopped
     ports:
       - "80:80"
@@ -59,6 +60,7 @@ services:
   crowdsec:
     # Collections and log acquisition are baked in (crowdsec/ in this repo).
     image: ghcr.io/floriandeutsch89/crowdsec:latest # moves only when promoted (README)
+    container_name: crowdsec
     restart: unless-stopped
     environment:
       # Registers Caddy's bouncer key on start; no cscli step needed.
@@ -92,6 +94,7 @@ services:
   # can create containers through it controls the host, so only Watchtower reaches it.
   socket-proxy:
     image: tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
+    container_name: socket-proxy
     restart: unless-stopped
     environment:
       CONTAINERS: 1 # list, inspect, recreate
@@ -113,6 +116,7 @@ services:
   # Since :latest only moves via promote, this deploys exactly what you promoted.
   watchtower:
     image: nickfedor/watchtower:1.23.0@sha256:45b54f6dc15227cfb38dbb826f2881aa0f56aaf0c255cdbb38bd80e598bdca9a
+    container_name: watchtower
     restart: unless-stopped
     environment:
       DOCKER_HOST: tcp://socket-proxy:2375
