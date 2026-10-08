@@ -34,12 +34,19 @@ cleanup() {
   fi
   dc down -v >/dev/null 2>&1 || true
   docker network rm caddy_app1 caddy_app2 >/dev/null 2>&1 || true
+  docker volume rm caddy-logs >/dev/null 2>&1 || true
   exit "$rc"
 }
 trap cleanup EXIT
 
 # External app networks, created like on a server (README).
 for net in caddy_app1 caddy_app2; do docker network create --internal "$net" >/dev/null; done
+
+echo "== log volume seeded by CrowdSec (read-only mount, first) is writable for Caddy"
+docker run --rm -v caddy-logs:/var/log/caddy:ro --entrypoint true "$E2E_CROWDSEC_IMAGE"
+perm=$(docker run --rm -v caddy-logs:/v busybox stat -c '%u:%g %a' /v)
+[ "$perm" = "10001:0 750" ] || { echo "::error::caddy-logs seeded as $perm, want 10001:0 750"; exit 1; }
+
 dc up -d --quiet-pull
 # .example.test, not .localhost: curl and Caddy both special-case localhost names.
 get() { curl -sk -o /dev/null -w '%{http_code}' --resolve "$1.example.test:443:127.0.0.1" "https://$1.example.test${2:-/}"; }
