@@ -1,7 +1,7 @@
 # One Caddy for all sites; one internal network per app, so apps cannot reach each other.
 services:
   caddy:
-    image: ghcr.io/floriandeutsch89/caddy:latest # moves only when promoted (README)
+    image: ghcr.io/floriandeutsch89/caddy:latest # every tested main build (README)
     container_name: caddy # one per host: `docker logs caddy` from anywhere
     restart: unless-stopped
     ports:
@@ -53,13 +53,13 @@ services:
         # go down because of CrowdSec (the bouncer fails open and reconnects).
         condition: service_healthy
         required: false
-    labels: [com.centurylinklabs.watchtower.enable=true] # follows :latest, i.e. promoted builds
+    labels: [com.centurylinklabs.watchtower.enable=true] # follows :latest
 
   # Detects attacks in Caddy's access log and shares bans with the bouncer in Caddy.
   # If it is down, Caddy keeps serving (fail-open), just without blocking.
   crowdsec:
     # Collections and log acquisition are baked in (crowdsec/ in this repo).
-    image: ghcr.io/floriandeutsch89/crowdsec:latest # moves only when promoted (README)
+    image: ghcr.io/floriandeutsch89/crowdsec:latest # every tested main build (README)
     container_name: crowdsec
     restart: unless-stopped
     environment:
@@ -113,7 +113,7 @@ services:
       options: { max-size: "5m", max-file: "2" }
 
   # Daily check for new :latest images of labeled containers (Caddy, CrowdSec).
-  # Since :latest only moves via promote, this deploys exactly what you promoted.
+  # :latest moves only after green CI on main (README), so this deploys tested builds.
   watchtower:
     image: nickfedor/watchtower:1.23.0@sha256:45b54f6dc15227cfb38dbb826f2881aa0f56aaf0c255cdbb38bd80e598bdca9a
     container_name: watchtower

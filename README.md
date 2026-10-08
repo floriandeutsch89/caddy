@@ -210,19 +210,19 @@ New named volumes work as is. Otherwise:
 
 | Tag | Moves when |
 |---|---|
-| `latest` | Only when promoted by hand. Use this in compose. |
-| `edge` | Every push to `main` (tested, not yet promoted) |
+| `latest` | Every tested build on `main`, except commits marked `[no-latest]`. Use this in compose. |
+| `edge` | Every build on `main`, including `[no-latest]` ones |
 | `2.11.7` / `1.8.1` | Upstream version; newest build of it |
 | `sha-<commit>` | Never |
 
-To release: try `edge`, then run **Actions → promote** (image, tag `edge`), then
-`docker compose pull && docker compose up -d` on the server. To roll back, promote the previous
-digest shown in the run summary. Promote only non-breaking builds; a breaking one needs a
-compose change first.
+A merged PR (e.g. from Dependabot) with green CI (lint, scans, smoke and full-stack e2e test)
+becomes `:latest` and Watchtower deploys it the next night. For a breaking change, put
+`[no-latest]` in the commit message, update compose on the server, then run
+**Actions → promote** (image, tag `edge`). To roll back, promote an older digest (shown in
+`docker buildx imagetools inspect` or an earlier run); the next merge moves `:latest` again.
 
 **Automatic updates:** Watchtower checks daily at 04:00 and recreates Caddy and CrowdSec
-(label `com.centurylinklabs.watchtower.enable=true`) when their `:latest` changed, i.e. after a
-promote. It reaches Docker only through a socket proxy that allows containers, images and
+(label `com.centurylinklabs.watchtower.enable=true`) when their `:latest` changed. It reaches Docker only through a socket proxy that allows containers, images and
 networks; everything else is blocked. Without Watchtower: `docker compose pull && docker compose up -d`.
 
 Verify an image: `gh attestation verify oci://ghcr.io/floriandeutsch89/caddy:latest --owner floriandeutsch89`

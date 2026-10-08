@@ -1,5 +1,5 @@
-# Moves :latest to a tested build. The only way :latest changes after its first
-# publish, so compose files using :latest get updates only when promoted.
+# Points :latest at a given build by hand: rollback (digest) or after a [no-latest]
+# commit. CI moves :latest on every other tested main build.
 name: promote
 
 on:

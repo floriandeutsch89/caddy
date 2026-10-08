@@ -271,8 +271,11 @@ jobs:
         with:
           images: ${{ env.IMAGE }}
           flavor: latest=false
+          # :latest follows every tested main build unless the commit message says
+          # [no-latest] (breaking change: update compose first, then promote).
           tags: |
             type=raw,value=edge
+            type=raw,value=latest,enable=${{ !contains(github.event.head_commit.message, '[no-latest]') }}
             type=raw,value=${{ steps.version.outputs.version }}
             type=sha
           labels: |
@@ -304,15 +307,3 @@ jobs:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
-
-      # Bootstrap only: a new image gets :latest once; afterwards the promote workflow moves it.
-      - name: Create :latest if missing
-        if: steps.gate.outputs.publish == 'true'
-        env:
-          DIGEST: ${{ steps.push.outputs.digest }}
-        run: |
-          if docker buildx imagetools inspect "$IMAGE:latest" >/dev/null 2>&1; then
-            echo ":latest exists, not touched (use the promote workflow)"
-          else
-            docker buildx imagetools create -t "$IMAGE:latest" "$IMAGE@$DIGEST"
-          fi

@@ -12,7 +12,7 @@ here via Dependabot and the next build.
 
 ## Supported versions
 
-Only `:edge` gets new builds; `:latest` is a promoted `:edge`. Older tags are not patched.
+Only `:edge`/`:latest` get new builds; `:latest` follows every tested main build. Older tags are not patched.
 
 ## What the build does
 
