@@ -1,4 +1,4 @@
-module github.com/floriandeutsch89/caddy
+module github.com/floriandeutsch89/caddy-crowdsec
 
 go 1.26.0
 

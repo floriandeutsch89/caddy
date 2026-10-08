@@ -10,5 +10,5 @@ ENV COLLECTIONS="crowdsecurity/caddy crowdsecurity/whitelist-good-actors"
 COPY acquis.d/caddy.yaml /staging/etc/crowdsec/acquis.d/caddy.yaml
 LABEL org.opencontainers.image.title="crowdsec" \
       org.opencontainers.image.description="CrowdSec with Caddy collections and log acquisition for ghcr.io/floriandeutsch89/caddy" \
-      org.opencontainers.image.source="https://github.com/floriandeutsch89/caddy" \
+      org.opencontainers.image.source="https://github.com/floriandeutsch89/caddy-crowdsec" \
       org.opencontainers.image.licenses="MIT"

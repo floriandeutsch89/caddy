@@ -29,5 +29,5 @@ COPY --from=builder /out/caddy /usr/bin/caddy
 USER 10001:0
 LABEL org.opencontainers.image.title="caddy" \
       org.opencontainers.image.description="Caddy 2 with crowdsec-bouncer, acmedns and ratelimit plugins" \
-      org.opencontainers.image.source="https://github.com/floriandeutsch89/caddy" \
+      org.opencontainers.image.source="https://github.com/floriandeutsch89/caddy-crowdsec" \
       org.opencontainers.image.licenses="Apache-2.0 AND MIT"

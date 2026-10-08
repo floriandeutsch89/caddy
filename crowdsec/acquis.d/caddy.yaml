@@ -1,5 +1,8 @@
 # Caddy's JSON access log from the shared volume, parsed by crowdsecurity/caddy.
 filenames:
   - /var/log/caddy/access.log
+# CrowdSec usually starts before Caddy creates the log; without this it never
+# watches the directory and reads nothing until restarted.
+force_inotify: true
 labels:
   type: caddy

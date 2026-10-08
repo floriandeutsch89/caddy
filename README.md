@@ -1,6 +1,6 @@
 # caddy
 
-[![ci](https://github.com/floriandeutsch89/caddy/actions/workflows/ci.yml/badge.svg)](https://github.com/floriandeutsch89/caddy/actions/workflows/ci.yml)
+[![ci](https://github.com/floriandeutsch89/caddy-crowdsec/actions/workflows/ci.yml/badge.svg)](https://github.com/floriandeutsch89/caddy-crowdsec/actions/workflows/ci.yml)
 
 Caddy 2 for hosting many small sites on one server, with these plugins (amd64, arm64):
 
@@ -21,7 +21,7 @@ You need Docker ≥ 28 with Compose ≥ 2.33, DNS records for each hostname poin
 80/443 open.
 
 ```sh
-git clone --depth 1 https://github.com/floriandeutsch89/caddy.git caddy-src
+git clone --depth 1 https://github.com/floriandeutsch89/caddy-crowdsec.git caddy-src
 cp -r caddy-src/examples caddy && cd caddy && cp .env.example .env
 sed -i "s/^CROWDSEC_API_KEY=.*/CROWDSEC_API_KEY=$(openssl rand -hex 32)/" .env
 # set ACME_EMAIL in .env, edit config/sites/*.caddy and the apps in compose.yaml
