@@ -2,7 +2,8 @@
 # Weekly run re-scans with fresh vulnerability data; base image fixes arrive as Dependabot digest PRs.
 name: ci
 
-# Docs-only changes skip CI (they cannot change an image or the stack).
+# Docs-only pushes skip CI (they cannot change an image or the stack). PRs always run:
+# required checks that never start would block the merge forever.
 on:
   push:
     branches: [main]
@@ -10,9 +11,6 @@ on:
       - '**.md'
       - LICENSE
   pull_request:
-    paths-ignore:
-      - '**.md'
-      - LICENSE
   schedule:
     - cron: '17 4 * * 1'
   workflow_dispatch:
@@ -115,6 +113,7 @@ jobs:
 
   # Same job name as in pikdame-local: Dockerfile lint, image CVEs, Dockerfile misconfigurations.
   docker-security:
+    name: docker-security (${{ matrix.image }}) # stable name for required checks
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
