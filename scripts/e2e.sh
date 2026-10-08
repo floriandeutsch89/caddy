@@ -18,8 +18,8 @@ done
 printf 'ACME_EMAIL=ci@example.com\nCROWDSEC_API_KEY=%s\n' "$(openssl rand -hex 32)" > .env
 # pull_policy never: fail instead of silently testing a published image.
 # DISABLE_ONLINE_API: no Central API registration for every CI run.
-printf 'services:\n  caddy-logs-init:\n    image: %s\n    pull_policy: never\n  caddy:\n    image: %s\n    pull_policy: never\n  crowdsec:\n    image: %s\n    pull_policy: never\n    environment:\n      DISABLE_ONLINE_API: "true"\n' \
-  "$E2E_IMAGE" "$E2E_IMAGE" "$E2E_CROWDSEC_IMAGE" > compose.ci.yaml
+printf 'services:\n  caddy:\n    image: %s\n    pull_policy: never\n  crowdsec:\n    image: %s\n    pull_policy: never\n    environment:\n      DISABLE_ONLINE_API: "true"\n' \
+  "$E2E_IMAGE" "$E2E_CROWDSEC_IMAGE" > compose.ci.yaml
 chmod -R a+rX .
 dc() { docker compose -f compose.yaml -f compose.ci.yaml "$@"; }
 cleanup() {
@@ -41,9 +41,12 @@ trap cleanup EXIT
 
 # External app networks, created like on a server (README).
 for net in caddy_app1 caddy_app2; do docker network create --internal "$net" >/dev/null; done
-# Worst case seen on a server: log volume exists root-owned and is not empty, so
-# Docker does not seed it from the Caddy image. caddy-logs-init must fix it.
-docker run --rm -v caddy-logs:/v busybox sh -c 'touch /v/.keep && chown 0:0 /v && chmod 0755 /v'
+
+echo "== log volume seeded by CrowdSec (read-only mount, first) is writable for Caddy"
+docker run --rm -v caddy-logs:/var/log/caddy:ro --entrypoint true "$E2E_CROWDSEC_IMAGE"
+perm=$(docker run --rm -v caddy-logs:/v busybox stat -c '%u:%g %a' /v)
+[ "$perm" = "10001:0 750" ] || { echo "::error::caddy-logs seeded as $perm, want 10001:0 750"; exit 1; }
+
 dc up -d --quiet-pull
 # .example.test, not .localhost: curl and Caddy both special-case localhost names.
 get() { curl -sk -o /dev/null -w '%{http_code}' --resolve "$1.example.test:443:127.0.0.1" "https://$1.example.test${2:-/}"; }
@@ -55,10 +58,6 @@ wait_for() { # wait_for <seconds> <description> <command...>
   for _ in $(seq "$t"); do "$@" && return 0; sleep 1; done
   echo "::error::timed out: $what"; return 1
 }
-
-echo "== log volume permissions"
-perm=$(docker run --rm -v caddy-logs:/v busybox stat -c '%u:%g %a' /v)
-[ "$perm" = "10001:0 750" ] || { echo "::error::caddy-logs is $perm, want 10001:0 750"; exit 1; }
 
 echo "== routing"
 wait_for 60 "app1 via Caddy" status_is app1 200

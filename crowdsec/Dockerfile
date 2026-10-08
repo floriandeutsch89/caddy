@@ -9,6 +9,9 @@ ENV COLLECTIONS="crowdsecurity/caddy crowdsecurity/whitelist-good-actors crowdse
 # The entrypoint copies /staging/etc/crowdsec into the /etc/crowdsec volume on
 # first start only (rsync --ignore-existing): later changes need a manual copy.
 COPY acquis.d/ /staging/etc/crowdsec/acquis.d/
+# CrowdSec usually mounts the shared log volume before Caddy does, so Docker seeds
+# it from this image: give it the owner Caddy (UID 10001) needs to write.
+RUN mkdir -p /var/log/caddy && chown 10001:0 /var/log/caddy && chmod 0750 /var/log/caddy
 LABEL org.opencontainers.image.title="crowdsec" \
       org.opencontainers.image.description="CrowdSec with Caddy collections and log acquisition for ghcr.io/floriandeutsch89/caddy" \
       org.opencontainers.image.source="https://github.com/floriandeutsch89/caddy-crowdsec" \
