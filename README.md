@@ -60,6 +60,18 @@ docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter c
 limit. Files not ending in `.caddy` are ignored. Files must be readable for UID 10001 (`0644`,
 directories `0755`; the default with `git clone`).
 
+**WebSockets** (games, chat) work without extra config, and the rate limit counts only the
+connect, not the messages. But a reload closes open WebSockets; keep them alive across reloads:
+
+```caddyfile
+game.example.com {
+	import common
+	reverse_proxy game:3000 {
+		stream_close_delay 5m
+	}
+}
+```
+
 HSTS is set without `includeSubDomains`, which would force HTTPS for a year on subdomains hosted
 elsewhere. Where every subdomain is HTTPS, add it per site:
 `header Strict-Transport-Security "max-age=31536000; includeSubDomains"`.
