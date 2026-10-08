@@ -156,7 +156,14 @@ The volume prefix is the compose project name (the directory, here `caddy`; see
 
 ## Non-root
 
-The image runs as UID `10001`. New named volumes work as is. Otherwise:
+The stock `caddy` image runs as root. This one runs as UID `10001`, group `0`, without any
+capabilities: a compromised Caddy, the one container facing the internet, is not root, and
+without user namespaces container UIDs are host UIDs, so a high UID matches no real host user.
+The state directories belong to group `0` with the owner's permissions, so the image also runs
+under an arbitrary UID (OpenShift's `restricted-v2` always uses GID 0); there, listen on
+8080/8443 or allow the sysctl below.
+
+New named volumes work as is. Otherwise:
 
 - **Bind mounts:** `sudo chown 10001:10001` the host directories first.
 - **From the stock `caddy` image:** chown the old volumes once:

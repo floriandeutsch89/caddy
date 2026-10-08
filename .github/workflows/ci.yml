@@ -108,6 +108,10 @@ jobs:
           for _ in $(seq 20); do curl -fsS http://127.0.0.1:8080 && break; sleep 0.5; done | grep -qx ok \
             || { docker logs smoke; echo "::error::container did not serve on :80"; exit 1; }
           docker rm -f smoke
+          # Arbitrary UID in group 0 (OpenShift restricted SCC) must write the state dirs.
+          docker run --rm --user 1000680000:0 caddy:test \
+            sh -c 'touch /data/x /config/x /var/log/caddy/x' \
+            || { echo "::error::arbitrary UID with GID 0 cannot write state dirs"; exit 1; }
 
   # Same job name as in pikdame-local: Dockerfile lint, image CVEs, Dockerfile misconfigurations.
   docker-security:
