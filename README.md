@@ -37,6 +37,25 @@ docker compose logs -f caddy   # wait for "certificate obtained successfully"
 | `config/sites/*.caddy` | One file per site |
 | `compose.yaml` | Caddy, CrowdSec, demo apps, one network per app, resource limits |
 
+### Server on Hetzner
+
+[`infra/`](infra/) sets up a fresh Ubuntu 24.04 host: Docker from Docker's repo, key-only SSH,
+fail2ban, daily security updates with reboot at 03:30, container log limits, and the steps above
+except the last two (`/opt/caddy` with a generated `.env` and the two app networks).
+
+- **Terraform** (adds a cloud firewall: SSH, 80, 443 tcp+udp, ICMP; daily Hetzner backups):
+  ```sh
+  cd infra/terraform && cp terraform.tfvars.example terraform.tfvars   # add your SSH key
+  export TF_VAR_hcloud_token=…   # Hetzner console > Security > API tokens
+  terraform init && terraform apply
+  ```
+- **Console only:** paste `infra/cloud-init.yaml` as "Cloud config" when creating the server
+  and attach a firewall with the same rules by hand.
+
+Then `ssh root@<ip>`, `cloud-init status --wait`, set `ACME_EMAIL` in `/opt/caddy/.env`, edit
+the sites and apps, `docker compose up -d`. The cloud firewall matters: ports published by
+Docker bypass a host firewall like `ufw`.
+
 ## Sites
 
 `config/` is mounted as `/etc/caddy`. Caddy reads `Caddyfile`, which loads every `sites/*.caddy`.

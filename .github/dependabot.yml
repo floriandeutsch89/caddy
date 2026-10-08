@@ -49,6 +49,15 @@ updates:
       default-days: 7
     commit-message:
       prefix: 'deps(crowdsec)'
+  - package-ecosystem: terraform
+    directory: /infra/terraform
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: 'deps(terraform)'
   # Pinned helpers in the example (socket proxy, Watchtower); caddy/crowdsec stay on :latest.
   - package-ecosystem: docker-compose
     directory: /examples

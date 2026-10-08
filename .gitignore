@@ -2,3 +2,7 @@
 # Real secrets live here on servers; never commit it.
 examples/.env
 .env
+# Terraform: local state holds the server's details; tfvars may hold your IP.
+infra/terraform/.terraform/
+infra/terraform/*.tfstate*
+infra/terraform/terraform.tfvars
