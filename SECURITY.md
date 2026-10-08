@@ -38,6 +38,8 @@ Only `:edge` gets new builds; `:latest` is a promoted `:edge`. Older tags are no
 ## Runtime protection (example stack)
 
 - Caddy runs as UID 10001, group 0, without capabilities, read-only root filesystem.
+- CrowdSec runs as root (upstream entrypoint) but without capabilities and with a read-only
+  root filesystem, so it cannot bypass file permissions; it reads Caddy's log via its group.
 - CrowdSec bans IPs from Caddy's access log and the community blocklist; Caddy blocks them.
 - CrowdSec AppSec (WAF) checks each request against virtual patches for known CVEs and
   generic attack rules and answers 403. It sits after the rate limit, inspects bodies up to

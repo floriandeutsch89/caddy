@@ -73,6 +73,12 @@ services:
       interval: 30s
       timeout: 10s
       start_period: 90s # first start installs the hub collections
+    # Runs as root (upstream entrypoint), but without capabilities root cannot bypass
+    # file permissions: it reads Caddy's log via group 10001 (old files) or 0 (new).
+    group_add: ["10001"]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     deploy:
       resources:

@@ -40,6 +40,7 @@
 			roll_size 10mb
 			roll_keep 2
 			roll_keep_for 48h
+			mode 0640 # group-readable: CrowdSec reads it without root's override capability
 		}
 		format json
 	}

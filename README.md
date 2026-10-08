@@ -97,8 +97,10 @@ networks:
 4. Add `config/sites/app3.caddy` and reload Caddy.
 
 An app that needs outbound internet gets an extra, non-internal network of its own, like
-`caddy_egress` for Caddy (e.g. `app3_egress`). Never join an app to `caddy_egress`: it would sit
-next to CrowdSec's API.
+`caddy_egress` for Caddy (e.g. `app3_egress`).
+
+> [!WARNING]
+> Never join an app to `caddy_egress`: it would sit next to CrowdSec's API.
 
 ## Certificates
 
