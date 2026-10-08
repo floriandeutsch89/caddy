@@ -163,9 +163,10 @@ networks:
   caddy_app2:
     external: true
 
+# Fixed names, no project prefix: same name whatever the directory is called.
 volumes:
-  caddy-data:
-  caddy-config:
-  caddy-logs:
-  crowdsec-config:
-  crowdsec-data:
+  caddy-data: { name: caddy-data }
+  caddy-config: { name: caddy-config }
+  caddy-logs: { name: caddy-logs }
+  crowdsec-config: { name: crowdsec-config }
+  crowdsec-data: { name: crowdsec-data }

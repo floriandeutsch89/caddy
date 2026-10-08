@@ -158,14 +158,24 @@ registration). Everything else is rebuilt on start. Back up both, e.g. nightly v
 
 ```sh
 for v in caddy-data crowdsec-config; do
-  docker run --rm -v "caddy_$v:/v:ro" -v "$PWD/backup:/b" alpine \
+  docker run --rm -v "$v:/v:ro" -v "$PWD/backup:/b" alpine \
     tar -czf "/b/$v-$(date +%F).tar.gz" -C /v .
 done
 ```
 
-The volume prefix is the compose project name (the directory, here `caddy`; see
-`docker volume ls`). Restore into a stopped stack with `tar -xzf … -C /v` the same way. Never use
-`docker compose down -v` unless you mean to delete them.
+Volumes have fixed names (no project prefix). Restore into a stopped stack with
+`tar -xzf … -C /v` the same way. Never use `docker compose down -v` unless you mean to delete them.
+
+Upgrading from a version with prefixed volumes (`caddy_caddy-data`)? Copy them once, or Compose
+starts with empty ones and every certificate is requested again:
+
+```sh
+docker compose down
+for v in caddy-data caddy-config caddy-logs crowdsec-config crowdsec-data; do
+  docker run --rm -v "caddy_$v:/from:ro" -v "$v:/to" alpine cp -a /from/. /to/
+done
+docker compose up -d   # check, then: docker volume rm caddy_caddy-data …
+```
 
 ## Non-root
 
