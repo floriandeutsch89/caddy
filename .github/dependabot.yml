@@ -14,6 +14,11 @@ updates:
     groups:
       go-modules:
         patterns: ['*']
+    ignore:
+      # caddy-crowdsec-bouncer v0.14.1 does not compile against crowdsec >= 1.7
+      # (API change). The bouncer release that supports it brings it along;
+      # drop this then (CVE-2026-44982, see SECURITY.md).
+      - dependency-name: github.com/crowdsecurity/crowdsec
   - package-ecosystem: docker
     directory: /
     schedule:
