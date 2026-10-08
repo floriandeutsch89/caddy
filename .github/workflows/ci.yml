@@ -88,7 +88,7 @@ jobs:
           got=$(run caddy version | cut -d' ' -f1)
           [ "$got" = "$WANT" ] || { echo "::error::caddy version $got, go.mod says $WANT"; exit 1; }
           mods=$(run caddy list-modules)
-          for m in http.handlers.crowdsec dns.providers.acmedns http.handlers.rate_limit; do
+          for m in http.handlers.crowdsec http.handlers.appsec dns.providers.acmedns http.handlers.rate_limit; do
             grep -qx "$m" <<<"$mods" || { echo "::error::module $m missing"; exit 1; }
           done
           [ "$(run id -u)" = 10001 ] || { echo "::error::image does not run as UID 10001"; exit 1; }

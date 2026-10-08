@@ -7,6 +7,7 @@ vulnerabilities:
       Bug in the CrowdSec AppSec engine (crowdsec module v1.6.3, pulled in by
       caddy-crowdsec-bouncer v0.14.1). The binary links only pkg/apiclient,
       pkg/models, pkg/types and pkg/fflag; no AppSec code (`go list -deps .`).
+      The AppSec engine runs in the CrowdSec image (v1.8.1, fixed since 1.7.8).
       Fixed versions need an unreleased bouncer commit. Drop once a bouncer
       release depends on crowdsec >= 1.7.8 (also
       remove GO-2026-5641 from .govulncheck-ignore).

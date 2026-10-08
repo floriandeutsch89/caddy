@@ -28,7 +28,7 @@ cleanup() {
     echo "== diagnostics"
     curl -skv --max-time 5 --resolve app1.example.test:443:127.0.0.1 https://app1.example.test/ -o /dev/null 2>&1 | tail -15 || true
     docker inspect "$(dc ps -q caddy)" --format '{{json .NetworkSettings.Ports}} {{range $n, $e := .NetworkSettings.Networks}}{{$n}} gw={{$e.Gateway}} prio={{$e.GwPriority}}; {{end}}' || true
-    echo "== crowdsec metrics"; dc exec -T crowdsec cscli metrics show acquisition parsers 2>&1 | tail -30 || true
+    echo "== crowdsec metrics"; dc exec -T crowdsec cscli metrics show acquisition parsers appsec 2>&1 | tail -40 || true
     echo "== access.log (last 3)"; dc exec -T caddy tail -n 3 /var/log/caddy/access.log 2>&1 || true
     for svc in caddy crowdsec app1 socket-proxy watchtower; do echo "== logs: $svc"; dc logs --no-color "$svc" | tail -60; done
   fi
@@ -42,10 +42,10 @@ trap cleanup EXIT
 for net in caddy_app1 caddy_app2; do docker network create --internal "$net" >/dev/null; done
 dc up -d --quiet-pull
 # .example.test, not .localhost: curl and Caddy both special-case localhost names.
-get() { curl -sk -o /dev/null -w '%{http_code}' --resolve "$1.example.test:443:127.0.0.1" "https://$1.example.test/"; }
+get() { curl -sk -o /dev/null -w '%{http_code}' --resolve "$1.example.test:443:127.0.0.1" "https://$1.example.test${2:-/}"; }
 # Re-runs the request on every try; `test "$(get x)" = 200` as a wait_for argument
 # would expand once and compare a stale status forever.
-status_is() { [ "$(get "$1")" = "$2" ]; }
+status_is() { [ "$(get "$1" "${3:-/}")" = "$2" ]; } # status_is <app> <code> [path]
 wait_for() { # wait_for <seconds> <description> <command...>
   local t=$1 what=$2; shift 2
   for _ in $(seq "$t"); do "$@" && return 0; sleep 1; done
@@ -100,4 +100,12 @@ dc exec -T crowdsec cscli decisions add --ip "$ip" --duration 5m --reason e2e >/
 wait_for 90 "403 for banned ip" status_is app1 403
 dc exec -T crowdsec cscli decisions delete --ip "$ip" >/dev/null
 wait_for 90 "200 after unban" status_is app1 200
+
+echo "== AppSec blocks an exploit request, not normal ones"
+# vpatch-env-access; fail-open returns 200 until the component is up. One hit
+# does not trigger a ban (appsec-vpatch needs repeated hits).
+wait_for 90 "403 from AppSec for /.env" status_is app1 403 /.env
+status_is app1 200 || { echo "::error::AppSec blocks a normal request"; exit 1; }
+dc exec -T crowdsec cscli metrics show appsec 2>&1 | tail -8
+docker stats --no-stream --format '{{.Name}} {{.MemUsage}}' "$(dc ps -q crowdsec)" "$(dc ps -q caddy)"
 echo "e2e ok"

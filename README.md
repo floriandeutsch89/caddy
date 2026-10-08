@@ -4,7 +4,7 @@
 
 Caddy 2 for hosting many small sites on one server, with these plugins (amd64, arm64):
 
-- [caddy-crowdsec-bouncer](https://github.com/hslatman/caddy-crowdsec-bouncer) (Apache-2.0): block IPs banned by CrowdSec
+- [caddy-crowdsec-bouncer](https://github.com/hslatman/caddy-crowdsec-bouncer) (Apache-2.0): block IPs banned by CrowdSec, AppSec WAF
 - [caddy-dns/acmedns](https://github.com/caddy-dns/acmedns) (MIT): wildcard certificates via DNS
 - [caddy-ratelimit](https://github.com/mholt/caddy-ratelimit) (Apache-2.0): per-IP rate limits
 
@@ -56,7 +56,7 @@ Apply without downtime (a broken config is rejected, the old one keeps running):
 docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 ```
 
-`import common` adds compression, security headers, CrowdSec, the access log and the rate
+`import common` adds compression, security headers, CrowdSec and AppSec, the access log and the rate
 limit. Files not ending in `.caddy` are ignored. Files must be readable for UID 10001 (`0644`,
 directories `0755`; the default with `git clone`).
 
@@ -121,6 +121,15 @@ Use option 1 unless you need a wildcard. Both can be mixed.
   config ([`crowdsec/`](crowdsec/)). Also pulls the community blocklist.
   If CrowdSec is down, sites keep working without blocking. Check it:
   `docker compose exec crowdsec cscli metrics` and `cscli decisions list`.
+- **CrowdSec AppSec (WAF):** checks every request (after the rate limit) against virtual patches
+  for known CVEs and generic attack rules (`appsec-virtual-patching`, `appsec-generic-rules`)
+  and answers 403 before it reaches the app; repeat offenders get banned. Bodies are inspected
+  up to 1 MiB. Fails open. False positives show in `cscli alerts list` with the rule name;
+  disable a rule via a custom AppSec config (CrowdSec docs, "AppSec configuration").
+
+CrowdSec copies its config from the image into the `crowdsec-config` volume on first start
+only. On an existing install, after updating the image:
+`docker compose exec crowdsec sh -c 'cp /staging/etc/crowdsec/acquis.d/* /etc/crowdsec/acquis.d/' && docker compose restart crowdsec`
 
 ## Limits
 

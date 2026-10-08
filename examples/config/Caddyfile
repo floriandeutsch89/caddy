@@ -2,13 +2,21 @@
 # site; every site block gets its own certificate automatically.
 {
 	email {$ACME_EMAIL}
-	order rate_limit before reverse_proxy
 
-	# Asks CrowdSec (compose.yaml) per request whether the client IP is banned.
+	# Asks CrowdSec (compose.yaml) per request whether the client IP is banned,
+	# then lets its AppSec WAF check the request itself.
+	# Rate limit before AppSec: floods are rejected cheaply, not sent to the WAF.
 	order crowdsec first
+	order rate_limit after crowdsec
+	order appsec after rate_limit
 	crowdsec {
 		api_url http://crowdsec:8080
 		api_key {$CROWDSEC_API_KEY}
+		appsec_url http://crowdsec:7422
+		# Sites stay up if AppSec is down (the IP check still applies).
+		appsec_fail_open
+		# Only the first 1 MiB of a body is inspected and buffered in memory.
+		appsec_max_body_bytes 1048576
 	}
 }
 
@@ -24,6 +32,7 @@
 		-Server
 	}
 	crowdsec
+	appsec
 	# JSON access log on a shared volume; CrowdSec detects attacks from it.
 	# Short retention: CrowdSec reads it live, nothing else needs it.
 	log {

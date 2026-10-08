@@ -3,9 +3,13 @@
 {
 	order crowdsec first
 	order rate_limit after crowdsec
+	order appsec after rate_limit
 	crowdsec {
 		api_url http://crowdsec:8080
 		api_key dummy
+		appsec_url http://crowdsec:7422
+		appsec_fail_open
+		appsec_max_body_bytes 1048576
 	}
 	acme_dns acmedns {
 		username dummy
@@ -17,6 +21,7 @@
 
 example.com {
 	crowdsec
+	appsec
 	rate_limit {
 		zone per_ip {
 			key {remote_host}
